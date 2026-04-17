@@ -20,6 +20,10 @@ def _get_run_value() -> str:
     # Если упакован PyInstaller'ом — только путь к exe
     if getattr(sys, 'frozen', False):
         return f'"{exe}"'
+    # pythonw.exe запускает без консольного окна
+    pythonw = Path(exe).with_name('pythonw.exe')
+    if pythonw.exists():
+        exe = str(pythonw)
     return f'"{exe}" "{main_script}"'
 
 
