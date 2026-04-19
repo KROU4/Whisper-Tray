@@ -31,6 +31,7 @@ class Transcriber:
     def __init__(self, model_size: str = 'small'):
         self.model_size = model_size
         self._model = None  # Загружается при первом вызове
+        self._force_cpu = False
 
     def _ensure_model(self):
         """Загружает модель если ещё не загружена"""
@@ -39,13 +40,26 @@ class Transcriber:
         logger.info(f"Загрузка модели Whisper '{self.model_size}'...")
         try:
             from faster_whisper import WhisperModel
+            if not self._force_cpu:
+                try:
+                    self._model = WhisperModel(
+                        self.model_size,
+                        device='cuda',
+                        compute_type='float16',
+                        download_root=None,
+                    )
+                    logger.info(f"Модель '{self.model_size}' загружена на GPU (CUDA float16)")
+                    return
+                except Exception as cuda_err:
+                    logger.warning(f"CUDA недоступна ({cuda_err}), использую CPU")
+                    self._force_cpu = True
             self._model = WhisperModel(
                 self.model_size,
                 device='cpu',
-                compute_type='int8',      # Сжатие для ускорения на CPU
-                download_root=None,       # Кеш в ~/.cache/huggingface/
+                compute_type='int8',
+                download_root=None,
             )
-            logger.info(f"Модель '{self.model_size}' загружена")
+            logger.info(f"Модель '{self.model_size}' загружена на CPU (int8)")
         except Exception as e:
             logger.error(f"Не удалось загрузить модель: {e}")
             raise
@@ -63,23 +77,44 @@ class Transcriber:
         """
         self._ensure_model()
 
-        segments, info = self._model.transcribe(
-            audio,
-            language=language,          # None = автодетект
-            beam_size=5,
-            vad_filter=True,            # Фильтрация тишины через VAD
-            vad_parameters=dict(min_silence_duration_ms=300),
-        )
+        try:
+            segments, info = self._model.transcribe(
+                audio,
+                language=language,
+                beam_size=1,
+                best_of=1,
+                condition_on_previous_text=False,
+                vad_filter=True,
+                vad_parameters=dict(min_silence_duration_ms=300),
+            )
+            parts = []
+            for seg in segments:
+                parts.append(seg.text.strip())
+        except Exception as e:
+            if not self._force_cpu and ('cublas' in str(e).lower() or 'cuda' in str(e).lower() or 'cudnn' in str(e).lower()):
+                logger.warning(f"Ошибка CUDA при инференсе ({e}), переключаюсь на CPU")
+                self._force_cpu = True
+                self._model = None
+                self._ensure_model()
+                segments, info = self._model.transcribe(
+                    audio,
+                    language=language,
+                    beam_size=1,
+                    best_of=1,
+                    condition_on_previous_text=False,
+                    vad_filter=True,
+                    vad_parameters=dict(min_silence_duration_ms=300),
+                )
+                parts = []
+                for seg in segments:
+                    parts.append(seg.text.strip())
+            else:
+                raise
 
         logger.info(
             f"Язык: {info.language} "
             f"(вероятность {info.language_probability:.2f})"
         )
-
-        # Собираем текст из сегментов (faster-whisper возвращает генератор)
-        parts = []
-        for seg in segments:
-            parts.append(seg.text.strip())
 
         raw_text = ' '.join(parts)
         result = normalize_text(raw_text)

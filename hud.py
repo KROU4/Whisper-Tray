@@ -1,16 +1,17 @@
 """
 Floating HUD-окно поверх всех окон.
-Показывает статус записи (● REC) и обработки (⏳ Обработка...).
+Показывает статус записи (● REC  0:07) и обработки (⏳ Обработка...).
 Управляется из tkinter-потока через команды в tk_queue.
 """
 import queue
+import time
 import logging
 import tkinter as tk
 
 logger = logging.getLogger(__name__)
 
 # Размеры HUD-окна
-HUD_W = 170
+HUD_W = 210
 HUD_H = 52
 MARGIN = 20  # Отступ от краёв экрана (правый нижний угол)
 
@@ -29,21 +30,26 @@ class HudManager:
         self._text_id = None
         self._pulse_job = None      # ID задачи after() для анимации
         self._pulse_bright = True   # Текущее состояние пульсации
+        self._timer_job = None      # ID задачи after() для таймера
+        self._rec_start: float | None = None  # Время начала записи
 
     # ------------------------------------------------------------------
     # Публичные методы
     # ------------------------------------------------------------------
 
     def show_rec(self):
-        """Создаёт HUD и запускает анимацию записи"""
+        """Создаёт HUD, запускает анимацию записи и таймер"""
         self._destroy_window()
         self._create_window()
         self._draw_rec()
+        self._rec_start = time.monotonic()
         self._schedule_pulse()
+        self._start_timer()
 
     def show_processing(self):
-        """Останавливает пульсацию, меняет текст на 'Обработка...'"""
+        """Останавливает пульсацию и таймер, меняет текст на 'Обработка...'"""
         self._cancel_pulse()
+        self._cancel_timer()
         if self._canvas is None:
             return
         try:
@@ -132,9 +138,37 @@ class HudManager:
                 pass
             self._pulse_job = None
 
+    def _start_timer(self):
+        """Запускает ежесекундное обновление счётчика времени записи"""
+        self._cancel_timer()
+        self._tick_timer()
+
+    def _tick_timer(self):
+        """Обновляет текст HUD: '● REC  0:07'"""
+        if self._canvas is None or self._text_id is None or self._rec_start is None:
+            return
+        try:
+            elapsed = int(time.monotonic() - self._rec_start)
+            label = f"● REC  {elapsed // 60}:{elapsed % 60:02d}"
+            self._canvas.itemconfig(self._text_id, text=label)
+            self._timer_job = self._canvas.after(1000, self._tick_timer)
+        except Exception:
+            pass
+
+    def _cancel_timer(self):
+        """Отменяет таймер"""
+        if self._timer_job is not None:
+            try:
+                self._canvas.after_cancel(self._timer_job)
+            except Exception:
+                pass
+            self._timer_job = None
+
     def _destroy_window(self):
         """Полностью уничтожает окно и сбрасывает состояние"""
         self._cancel_pulse()
+        self._cancel_timer()
+        self._rec_start = None
         if self._win is not None:
             try:
                 self._win.destroy()
@@ -145,6 +179,7 @@ class HudManager:
         self._dot_id = None
         self._text_id = None
         self._pulse_bright = True
+        self._timer_job = None
 
 
 # ------------------------------------------------------------------

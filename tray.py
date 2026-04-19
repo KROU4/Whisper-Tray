@@ -11,22 +11,22 @@ from pystray import MenuItem as item, Menu
 logger = logging.getLogger(__name__)
 
 
-def _create_icon_image() -> Image.Image:
+def _create_icon_image(recording: bool = False) -> Image.Image:
     """
-    Генерирует иконку трея 64×64:
-    тёмный круг с красным микрофоном-точкой внутри.
+    Генерирует иконку трея 64×64.
+    recording=True: ярко-красный фон — визуальный сигнал что идёт запись.
     """
     img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # Тёмный фон-круг
-    draw.ellipse([2, 2, 62, 62], fill=(35, 35, 40, 240))
-
-    # Красная точка — символ записи
-    draw.ellipse([20, 20, 44, 44], fill=(220, 50, 50, 255))
-
-    # Белая буква-тень для читаемости (маленький круг внутри)
-    draw.ellipse([26, 26, 38, 38], fill=(255, 255, 255, 180))
+    if recording:
+        draw.ellipse([2, 2, 62, 62], fill=(160, 20, 20, 255))   # Ярко-красный фон
+        draw.ellipse([20, 20, 44, 44], fill=(255, 255, 255, 255))  # Белая точка
+        draw.ellipse([27, 27, 37, 37], fill=(220, 40, 40, 255))    # Красный центр
+    else:
+        draw.ellipse([2, 2, 62, 62], fill=(35, 35, 40, 240))    # Тёмный фон
+        draw.ellipse([20, 20, 44, 44], fill=(220, 50, 50, 255))  # Красная точка
+        draw.ellipse([26, 26, 38, 38], fill=(255, 255, 255, 180))  # Белый центр
 
     return img
 
@@ -68,6 +68,15 @@ class TrayApp:
     # Публичный API
     # ------------------------------------------------------------------
 
+    def set_recording(self, recording: bool):
+        """Обновляет иконку трея: красный фон во время записи"""
+        if self._icon is None:
+            return
+        try:
+            self._icon.icon = _create_icon_image(recording)
+        except Exception as e:
+            logger.warning(f"Смена иконки не удалась: {e}")
+
     def notify(self, title: str, message: str):
         """Показывает всплывающее уведомление трея"""
         if self._icon is None:
@@ -96,8 +105,8 @@ class TrayApp:
         self._icon = pystray.Icon(
             name='WhisperTray',
             icon=_create_icon_image(),
-            title='WhisperTray — голосовой ввод\nWin+H для записи',
+            title='WhisperTray — голосовой ввод\nwin+alt для записи',
             menu=menu,
         )
-        logger.info("Трей запущен. Используйте Win+H для записи.")
+        logger.info("Трей запущен. Используйте win+alt для записи.")
         self._icon.run()

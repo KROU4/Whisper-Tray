@@ -1,5 +1,5 @@
 """
-Глобальный перехват хоткея (по умолчанию Win+H).
+Глобальный перехват хоткея (по умолчанию win+alt).
 Управляет циклом запись → транскрипция → вставка.
 """
 import logging
@@ -21,6 +21,8 @@ class HotkeyListener:
         self._recorder = None
         self._transcriber = None
         self._current_hotkey: str | None = None
+        self._lock = threading.Lock()       # Защита от двойного нажатия хоткея
+        self._is_transcribing = False       # Флаг активной транскрипции
 
     # ------------------------------------------------------------------
     # Ленивая инициализация тяжёлых компонентов
@@ -47,11 +49,15 @@ class HotkeyListener:
     # ------------------------------------------------------------------
 
     def on_hotkey(self):
-        """Переключает между началом и концом записи"""
-        if not self.state.is_recording.is_set():
-            self._start_recording()
-        else:
-            self._stop_and_transcribe()
+        """Переключает между началом и концом записи (атомарно под локом)"""
+        with self._lock:
+            if self._is_transcribing:
+                logger.warning("Транскрипция уже идёт — хоткей проигнорирован")
+                return
+            if not self.state.is_recording.is_set():
+                self._start_recording()
+            else:
+                self._stop_and_transcribe()
 
     # ------------------------------------------------------------------
     # Запись
@@ -70,6 +76,8 @@ class HotkeyListener:
 
         self.state.is_recording.set()
         self.state.tk_queue.put(('show_hud',))
+        if self.state.tray_app:
+            self.state.tray_app.set_recording(True)
 
     def _stop_and_transcribe(self):
         self.state.is_recording.clear()
@@ -98,6 +106,9 @@ class HotkeyListener:
     # ------------------------------------------------------------------
 
     def _transcribe_and_paste(self, audio: np.ndarray):
+        self._is_transcribing = True
+        if self.state.tray_app:
+            self.state.tray_app.set_recording(False)
         try:
             transcriber = self._get_transcriber()
             text = transcriber.transcribe(
@@ -112,6 +123,8 @@ class HotkeyListener:
                     'Ошибка', f'Не удалось транскрибировать: {e}'
                 )
             return
+        finally:
+            self._is_transcribing = False
 
         if not text:
             logger.info("Транскрипт пустой — ничего не вставляем")
@@ -122,42 +135,66 @@ class HotkeyListener:
 
     def _paste_text(self, text: str):
         """
-        Вставляет текст через буфер обмена:
-        1. Сохраняет оригинальный буфер
-        2. Копирует транскрипт
-        3. Нажимает Ctrl+V
-        4. Восстанавливает буфер через 500ms
+        Вставляет текст через SendInput (KEYEVENTF_UNICODE) — буфер обмена не трогается.
+        Работает в большинстве Windows-приложений с текстовыми полями.
         """
-        import pyperclip
-        import keyboard as kb
+        import ctypes
 
         logger.info(f"Вставка: {text!r}")
 
-        # Сохраняем текущий буфер обмена
-        try:
-            original = pyperclip.paste()
-        except Exception:
-            original = ''
+        PUL = ctypes.POINTER(ctypes.c_ulong)
+
+        class KeyBdInput(ctypes.Structure):
+            _fields_ = [
+                ('wVk',         ctypes.c_ushort),
+                ('wScan',       ctypes.c_ushort),
+                ('dwFlags',     ctypes.c_ulong),
+                ('time',        ctypes.c_ulong),
+                ('dwExtraInfo', PUL),
+            ]
+
+        class _InputUnion(ctypes.Union):
+            # Pad to 32 bytes — size of MOUSEINPUT (largest INPUT union member on 64-bit)
+            _fields_ = [('ki', KeyBdInput), ('_pad', ctypes.c_byte * 32)]
+
+        class Input(ctypes.Structure):
+            _fields_ = [('type', ctypes.c_ulong), ('ii', _InputUnion)]
+
+        KEYEVENTF_UNICODE = 0x0004
+        KEYEVENTF_KEYUP   = 0x0002
+        INPUT_KEYBOARD    = 1
+
+        extra = ctypes.c_ulong(0)
+        ptr   = ctypes.pointer(extra)
+
+        events = []
+        for ch in text:
+            code = ord(ch)
+            if code > 0xFFFF:
+                # Surrogate pair для символов за пределами BMP
+                code -= 0x10000
+                high = 0xD800 + (code >> 10)
+                low  = 0xDC00 + (code & 0x3FF)
+                for scan in (high, low):
+                    dn = Input(INPUT_KEYBOARD, _InputUnion(ki=KeyBdInput(0, scan, KEYEVENTF_UNICODE, 0, ptr)))
+                    up = Input(INPUT_KEYBOARD, _InputUnion(ki=KeyBdInput(0, scan, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0, ptr)))
+                    events += [dn, up]
+            else:
+                dn = Input(INPUT_KEYBOARD, _InputUnion(ki=KeyBdInput(0, code, KEYEVENTF_UNICODE, 0, ptr)))
+                up = Input(INPUT_KEYBOARD, _InputUnion(ki=KeyBdInput(0, code, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0, ptr)))
+                events += [dn, up]
+
+        time.sleep(0.15)  # Ждём возврата фокуса к целевому окну
 
         try:
-            pyperclip.copy(text)
-            time.sleep(0.15)    # Пауза чтобы фокус вернулся к целевому окну
-            kb.send('ctrl+v')
-            logger.info("Ctrl+V отправлен")
+            n = len(events)
+            arr = (Input * n)(*events)
+            sent = ctypes.windll.user32.SendInput(n, arr, ctypes.sizeof(Input))
+            logger.info(f"SendInput отправил {sent} событий")
         except Exception as e:
-            logger.error(f"Ошибка вставки текста: {e}")
+            logger.error(f"Ошибка SendInput: {e}")
         finally:
             self.state.tk_queue.put(('hide_hud',))
-
-        # Восстанавливаем оригинальный буфер через 500ms в фоне
-        def restore_clipboard():
-            time.sleep(0.5)
-            try:
-                pyperclip.copy(original)
-            except Exception:
-                pass
-
-        threading.Thread(target=restore_clipboard, daemon=True).start()
 
     # ------------------------------------------------------------------
     # Запуск и перезагрузка
@@ -173,7 +210,7 @@ class HotkeyListener:
         """
         import keyboard as kb
 
-        hotkey = self.state.config.get('hotkey', 'win+h')
+        hotkey = self.state.config.get('hotkey', 'win+alt')
         logger.info(f"Регистрация хоткея: '{hotkey}'")
 
         try:

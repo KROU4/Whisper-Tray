@@ -98,6 +98,14 @@ def main():
     state = AppState()
     logger.info(f"Конфигурация: {state.config}")
 
+    try:
+        import ctranslate2
+        gpu_count = ctranslate2.get_cuda_device_count()
+        device_info = f"GPU (CUDA, устройств: {gpu_count})" if gpu_count > 0 else "CPU"
+    except Exception:
+        device_info = "CPU"
+    logger.info(f"Транскрипция будет выполняться на: {device_info}")
+
     # ---- Поток 2: tkinter (HUD + Settings) ----
     from hud import TkLoop
     tk_thread = threading.Thread(
@@ -126,7 +134,7 @@ def main():
     state.tray_app = tray
 
     logger.info(f"Хоткей: {state.config['hotkey']}")
-    logger.info("Приложение готово. Нажмите Win+H для начала записи.")
+    logger.info("Приложение готово. Нажмите win+alt для начала записи.")
 
     try:
         tray.run()  # Блокирует до команды "Выход"

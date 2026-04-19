@@ -21,6 +21,27 @@ MODEL_LABELS = [
 ]
 MODEL_NAMES = ['tiny', 'base', 'small', 'medium', 'large']
 
+LANGUAGE_LABELS = [
+    'Авто',
+    'Русский (ru)',
+    'English (en)',
+    'Українська (uk)',
+    'Deutsch (de)',
+    'Français (fr)',
+    'Español (es)',
+    'Italiano (it)',
+    'Polski (pl)',
+]
+LANGUAGE_CODES = [None, 'ru', 'en', 'uk', 'de', 'fr', 'es', 'it', 'pl']
+
+def _label_for_lang(code) -> str:
+    idx = LANGUAGE_CODES.index(code) if code in LANGUAGE_CODES else 0
+    return LANGUAGE_LABELS[idx]
+
+def _code_for_lang(label: str):
+    idx = LANGUAGE_LABELS.index(label) if label in LANGUAGE_LABELS else 0
+    return LANGUAGE_CODES[idx]
+
 def _label_for(model_name: str) -> str:
     idx = MODEL_NAMES.index(model_name) if model_name in MODEL_NAMES else 2
     return MODEL_LABELS[idx]
@@ -52,7 +73,7 @@ def open_settings(root: tk.Tk, state):
     """
     win = tk.Toplevel(root)
     win.title('Настройки WhisperTray')
-    win.geometry('460x260')
+    win.geometry('460x310')
     win.resizable(False, False)
     win.grab_set()   # Блокирует взаимодействие с другими окнами
 
@@ -142,9 +163,19 @@ def open_settings(root: tk.Tk, state):
         fg='gray', font=('Segoe UI', 8)
     ).grid(row=3, column=1, sticky='w', padx=12)
 
+    # ---- Строка 4: язык распознавания ----
+    tk.Label(win, text='Язык:', anchor='w').grid(
+        row=4, column=0, sticky='w', **pad
+    )
+    lang_var = tk.StringVar(value=_label_for_lang(cfg.get('language')))
+    ttk.Combobox(
+        win, textvariable=lang_var,
+        values=LANGUAGE_LABELS, state='readonly', width=20
+    ).grid(row=4, column=1, sticky='w', **pad)
+
     # ---- Кнопки ----
     btn_frame = tk.Frame(win)
-    btn_frame.grid(row=4, column=0, columnspan=2, pady=14)
+    btn_frame.grid(row=5, column=0, columnspan=2, pady=14)
 
     def save():
         new_model   = _name_for(model_var.get())
@@ -159,11 +190,14 @@ def open_settings(root: tk.Tk, state):
             messagebox.showwarning('Предупреждение', 'Хоткей не может быть пустым.')
             return
 
+        new_language = _code_for_lang(lang_var.get())
+
         # Применяем изменения в runtime
         old_hotkey = state.config.get('hotkey')
         state.config['model']        = new_model
         state.config['hotkey']       = new_hotkey
         state.config['device_index'] = new_device_idx
+        state.config['language']     = new_language
 
         # Перезагружаем хоткей если изменился
         hotkey_listener = getattr(state, 'hotkey_listener', None)
