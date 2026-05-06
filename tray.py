@@ -60,6 +60,10 @@ class TrayApp:
         import autostart
         return autostart.is_enabled()
 
+    def _on_transcribe_file(self, icon, menu_item):
+        """Открывает диалог выбора аудиофайла через tkinter-поток"""
+        self.state.tk_queue.put(('open_file_dialog',))
+
     def _on_quit(self, icon, menu_item):
         logger.info("Завершение по команде меню")
         icon.stop()
@@ -92,7 +96,8 @@ class TrayApp:
         Должен выполняться в main thread.
         """
         menu = Menu(
-            item('Настройки',   self._on_settings),
+            item('Настройки',                    self._on_settings),
+            item('Транскрибировать аудиофайл',   self._on_transcribe_file),
             item(
                 'Автозапуск',
                 self._on_autostart,

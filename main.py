@@ -10,11 +10,19 @@ WhisperTray — голосовой ввод через локальный Whispe
   Thread 5     →  faster-whisper транскрипция (временный)
 """
 import sys
+import os
 import json
 import logging
 import queue
 import threading
 from pathlib import Path
+
+# Добавляем CUDA bin в PATH чтобы ctranslate2 нашёл cublas64_12.dll и cudnn
+for _cuda_ver in ('12.0', '12.1', '12.2', '12.3', '12.4', '12.5', '12.6'):
+    _cuda_bin = Path(r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA') / f'v{_cuda_ver}' / 'bin'
+    if _cuda_bin.exists():
+        os.environ['PATH'] = str(_cuda_bin) + os.pathsep + os.environ.get('PATH', '')
+        break
 
 # ------------------------------------------------------------------
 # Пути
@@ -44,7 +52,8 @@ logging.getLogger('faster_whisper').setLevel(logging.WARNING)
 # Конфигурация
 # ------------------------------------------------------------------
 DEFAULT_CONFIG: dict = {
-    'model':        'small',   # Размер модели Whisper
+    'model':        'small',   # Размер модели Whisper для real-time записи
+    'file_model':   'large',   # Размер модели Whisper для транскрипции файлов
     'device_index': None,      # Индекс микрофона (None = системный по умолчанию)
     'hotkey':       'win+alt', # Глобальный хоткей
     'language':     None,      # Язык (None = автодетект)
@@ -80,11 +89,13 @@ class AppState:
     Все поля thread-safe (Event, Queue) или read-only после инициализации.
     """
     def __init__(self):
-        self.config: dict        = load_config()
-        self.is_recording        = threading.Event()   # Установлен = идёт запись
-        self.tk_queue: queue.Queue = queue.Queue()     # Команды в tkinter-поток
-        self.tray_app            = None                # TrayApp (позже)
-        self.hotkey_listener     = None                # HotkeyListener (позже)
+        self.config: dict          = load_config()
+        self.is_recording          = threading.Event()   # Установлен = идёт запись
+        self.is_file_transcribing  = threading.Event()   # Установлен = транскрипция файла
+        self.tk_queue: queue.Queue = queue.Queue()       # Команды в tkinter-поток
+        self.tray_app              = None                # TrayApp (позже)
+        self.hotkey_listener       = None                # HotkeyListener (позже)
+        self.file_transcriber      = None                # FileTranscriptionWorker (позже)
 
 
 # ------------------------------------------------------------------
@@ -127,6 +138,10 @@ def main():
         name="HotkeyThread",
     )
     hotkey_thread.start()
+
+    # ---- Файловый транскрибатор (создаём до трея) ----
+    from file_transcriber import FileTranscriptionWorker
+    state.file_transcriber = FileTranscriptionWorker(state)
 
     # ---- Main thread: системный трей (блокирующий) ----
     from tray import TrayApp

@@ -214,6 +214,10 @@ def TkLoop(state):
                 elif cmd == 'show_settings':
                     from settings import open_settings
                     open_settings(root, state)
+                elif cmd == 'open_file_dialog':
+                    ft = getattr(state, 'file_transcriber', None)
+                    if ft is not None:
+                        ft.open_file_dialog(root)
                 else:
                     logger.warning(f"Неизвестная команда: {cmd}")
 
