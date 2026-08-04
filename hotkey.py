@@ -40,7 +40,8 @@ class HotkeyListener:
         if self._transcriber is None:
             from transcriber import Transcriber
             self._transcriber = Transcriber(
-                model_size=self.state.config.get('model', 'small')
+                model_size=self.state.config.get('model', 'small'),
+                config=self.state.config,
             )
         return self._transcriber
 

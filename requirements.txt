@@ -1,4 +1,5 @@
 faster-whisper
+groq>=0.13
 sounddevice
 numpy
 pystray

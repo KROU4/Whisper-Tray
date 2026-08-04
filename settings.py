@@ -51,6 +51,19 @@ def _name_for(label: str) -> str:
     return MODEL_NAMES[idx]
 CONFIG_FILE = Path(__file__).parent / 'config.json'
 
+BACKEND_LABELS = ['Cloud Groq', 'Local Whisper']
+BACKEND_VALUES = ['groq', 'local']
+
+
+def _label_for_backend(value: str) -> str:
+    idx = BACKEND_VALUES.index(value) if value in BACKEND_VALUES else 0
+    return BACKEND_LABELS[idx]
+
+
+def _backend_for_label(label: str) -> str:
+    idx = BACKEND_LABELS.index(label) if label in BACKEND_LABELS else 0
+    return BACKEND_VALUES[idx]
+
 
 def _get_input_devices() -> list[dict]:
     """Возвращает список доступных входных аудиоустройств"""
@@ -73,7 +86,7 @@ def open_settings(root: tk.Tk, state):
     """
     win = tk.Toplevel(root)
     win.title('Настройки WhisperTray')
-    win.geometry('460x360')
+    win.geometry('460x430')
     win.resizable(False, False)
     win.grab_set()   # Блокирует взаимодействие с другими окнами
 
@@ -183,9 +196,26 @@ def open_settings(root: tk.Tk, state):
         values=LANGUAGE_LABELS, state='readonly', width=20
     ).grid(row=5, column=1, sticky='w', **pad)
 
+    tk.Label(win, text='Backend:', anchor='w').grid(
+        row=6, column=0, sticky='w', **pad
+    )
+    backend_var = tk.StringVar(value=_label_for_backend(cfg.get('transcription_backend', 'groq')))
+    ttk.Combobox(
+        win, textvariable=backend_var,
+        values=BACKEND_LABELS, state='readonly', width=20
+    ).grid(row=6, column=1, sticky='w', **pad)
+
+    tk.Label(win, text='Groq API key:', anchor='w').grid(
+        row=7, column=0, sticky='w', **pad
+    )
+    groq_key_var = tk.StringVar(value=cfg.get('groq_api_key', ''))
+    tk.Entry(win, textvariable=groq_key_var, width=34, show='*').grid(
+        row=7, column=1, sticky='w', **pad
+    )
+
     # ---- Кнопки ----
     btn_frame = tk.Frame(win)
-    btn_frame.grid(row=6, column=0, columnspan=2, pady=14)
+    btn_frame.grid(row=8, column=0, columnspan=2, pady=14)
 
     def save():
         new_model      = _name_for(model_var.get())
@@ -211,6 +241,11 @@ def open_settings(root: tk.Tk, state):
         state.config['hotkey']       = new_hotkey
         state.config['device_index'] = new_device_idx
         state.config['language']     = new_language
+        state.config['transcription_backend'] = _backend_for_label(backend_var.get())
+        state.config['groq_api_key'] = groq_key_var.get().strip()
+        state.config.setdefault('groq_model', 'whisper-large-v3-turbo')
+        state.config.setdefault('groq_prompt', '')
+        state.config.setdefault('groq_max_retries', 4)
 
         # Перезагружаем хоткей если изменился
         hotkey_listener = getattr(state, 'hotkey_listener', None)

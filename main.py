@@ -47,17 +47,33 @@ logger = logging.getLogger(__name__)
 # Подавляем шумные DEBUG-сообщения сторонних библиотек
 logging.getLogger('PIL').setLevel(logging.WARNING)
 logging.getLogger('faster_whisper').setLevel(logging.WARNING)
+logging.getLogger('groq').setLevel(logging.WARNING)
+logging.getLogger('groq._base_client').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
+logging.getLogger('httpx').setLevel(logging.WARNING)
 
 # ------------------------------------------------------------------
 # Конфигурация
 # ------------------------------------------------------------------
 DEFAULT_CONFIG: dict = {
+    'transcription_backend': 'groq',
+    'groq_model':   'whisper-large-v3-turbo',
+    'groq_api_key': '',
+    'groq_prompt':  '',
+    'groq_max_retries': 4,
     'model':        'small',   # Размер модели Whisper для real-time записи
     'file_model':   'large',   # Размер модели Whisper для транскрипции файлов
     'device_index': None,      # Индекс микрофона (None = системный по умолчанию)
     'hotkey':       'win+alt', # Глобальный хоткей
     'language':     None,      # Язык (None = автодетект)
 }
+
+
+def sanitize_config(cfg: dict) -> dict:
+    safe = cfg.copy()
+    if safe.get('groq_api_key'):
+        safe['groq_api_key'] = '***'
+    return safe
 
 
 def load_config() -> dict:
@@ -107,7 +123,7 @@ def main():
     logger.info("=" * 60)
 
     state = AppState()
-    logger.info(f"Конфигурация: {state.config}")
+    logger.info(f"Конфигурация: {sanitize_config(state.config)}")
 
     try:
         import ctranslate2

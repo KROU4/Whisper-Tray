@@ -22,7 +22,7 @@ class FileTranscriptionWorker:
         if self._transcriber is None:
             from transcriber import Transcriber
             model_size = self.state.config.get('file_model', 'large')
-            self._transcriber = Transcriber(model_size=model_size)
+            self._transcriber = Transcriber(model_size=model_size, config=self.state.config)
         return self._transcriber
 
     def reload(self, new_model_size: str):
