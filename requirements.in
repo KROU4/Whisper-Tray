@@ -1,0 +1,11 @@
+# Human-maintained runtime dependency inputs. Generate requirements.txt with:
+#   pip-compile requirements.in -o requirements.txt
+faster-whisper
+requests
+groq
+sounddevice
+numpy
+pynput
+keyring
+pyperclip
+PySide6-Essentials

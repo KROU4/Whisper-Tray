@@ -1,2 +1,36 @@
-*.pyc
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Local application data and secrets. A safe template is tracked instead.
+config.json
+*.local.json
+.env
+.env.*
+!.env.example
+
+# Runtime data must never be committed.
+*.log
+logs/
+data/
+history/
+*.wav
+*.mp3
+*.m4a
+*.webm
+
+# Python/build tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+dist-installer/
+*.spec.bak
+
+# IDE and local demo artifacts
+.vscode/
+.idea/
 /demo

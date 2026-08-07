@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a focused product improvement.
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the workflow problem, not only the proposed control.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: dropdown
+    id: privacy
+    attributes:
+      label: Does this change audio or transcript handling?
+      options: [No, Yes, Unsure]
+    validations:
+      required: true

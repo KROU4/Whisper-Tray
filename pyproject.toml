@@ -1,0 +1,41 @@
+[project]
+name = "whispertray"
+version = "1.0.0"
+description = "Privacy-aware desktop dictation for Windows, macOS, and Linux."
+requires-python = ">=3.10"
+authors = [{ name = "KROU4" }]
+
+[tool.briefcase]
+project_name = "WhisperTray"
+bundle = "com.whispertray"
+version = "1.0.0"
+url = "https://github.com/KROU4/Whisper-Tray"
+license = { text = "Proprietary" }
+author = "KROU4"
+
+[tool.briefcase.app.whispertray]
+formal_name = "WhisperTray"
+description = "Privacy-aware desktop dictation."
+sources = [
+    "src/whispertray", "autostart.py", "config_store.py", "core.py", "credentials.py",
+    "diagnostics.py", "file_transcriber.py", "history_store.py", "hotkey.py",
+    "logging_setup.py", "main.py", "platform_integration.py", "recorder.py",
+    "transcriber.py", "ui.py", "assets",
+]
+requires = [
+    "faster-whisper==1.1.1", "groq==0.15.0", "keyring==25.7.0",
+    "numpy==2.2.2", "pynput==1.8.2", "pyperclip==1.9.0", "PySide6-Essentials==6.8.1",
+    "requests==2.34.2", "sounddevice==0.5.1",
+]
+icon = "assets/whispertray"
+
+# Briefcase builds matching-host artifacts: Windows MSI, macOS DMG/PKG and
+# Linux native system packages. See docs/PACKAGING.md.
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+exclude = ["build", "dist"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
