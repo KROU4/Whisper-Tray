@@ -1,19 +1,17 @@
-"""Transcription backends for WhisperTray.
-
-Groq Cloud is the default backend. Local faster-whisper remains available and
-is used automatically as a fallback when Groq is not configured or fails.
-"""
+"""Explicit privacy-local and user-selected Groq transcription backends."""
 
 from __future__ import annotations
 
 import logging
-import os
 import time
 import wave
 from io import BytesIO
 from pathlib import Path
 
 import numpy as np
+
+from core import BackendError, Profile
+from credentials import CredentialStore
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +32,7 @@ def normalize_text(text: str) -> str:
     return text
 
 
-class GroqTranscriptionError(Exception):
+class GroqTranscriptionError(BackendError):
     pass
 
 
@@ -56,22 +54,33 @@ def _audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = 16000) -> bytes:
 
 
 class Transcriber:
-    def __init__(self, model_size: str = "small", config: dict | None = None):
+    def __init__(
+        self,
+        model_size: str = "small",
+        config: dict | None = None,
+        credentials: CredentialStore | None = None,
+        on_backend_switch=None,
+    ):
         self.model_size = model_size
         self.config = config or {}
         self._model = None
         self._groq_client = None
         self._groq_client_key = None
         self._force_cpu = False
+        self.credentials = credentials or CredentialStore()
+        self.on_backend_switch = on_backend_switch
 
     def _backend(self) -> str:
+        # Privacy is a hard contract: it can never use a network backend.
+        if self.config.get("profile", Profile.PRIVACY.value) == Profile.PRIVACY.value:
+            return LOCAL_BACKEND
         backend = self.config.get("transcription_backend", GROQ_BACKEND)
         if backend in {GROQ_BACKEND, LOCAL_BACKEND}:
             return backend
-        return GROQ_BACKEND
+        return LOCAL_BACKEND
 
     def _groq_api_key(self) -> str:
-        return (self.config.get("groq_api_key") or os.environ.get("GROQ_API_KEY") or "").strip()
+        return self.credentials.get_groq_key()
 
     def _get_groq_client(self):
         api_key = self._groq_api_key()
@@ -79,12 +88,12 @@ class Transcriber:
             return self._groq_client
 
         if not api_key:
-            raise GroqTranscriptionError("GROQ_API_KEY is not configured")
+            raise GroqTranscriptionError("cloud_key_missing", "Groq API key is not configured")
 
         try:
             from groq import Groq
         except Exception as exc:
-            raise GroqTranscriptionError("groq package is not installed") from exc
+            raise GroqTranscriptionError("cloud_unavailable", "Groq support is not installed") from exc
 
         self._groq_client = Groq(api_key=api_key)
         self._groq_client_key = api_key
@@ -110,12 +119,7 @@ class Transcriber:
                 )
                 elapsed = time.monotonic() - start
                 text = normalize_text(getattr(transcription, "text", "") or "")
-                logger.info(
-                    "Groq transcribed %s (%.1f KB) in %.2fs",
-                    filename,
-                    len(audio_bytes) / 1024,
-                    elapsed,
-                )
+                logger.info("Groq transcription completed in %.2fs", elapsed)
                 return text
             except Exception as exc:
                 status_code = getattr(exc, "status_code", None)
@@ -131,9 +135,19 @@ class Transcriber:
                     time.sleep(delay)
                     delay = min(delay * 2, 30.0)
                     continue
-                raise GroqTranscriptionError(f"Groq transcription failed: {exc}") from exc
+                if status_code in (401, 403):
+                    raise GroqTranscriptionError("cloud_auth", "Groq API key was rejected") from exc
+                if status_code == 429:
+                    raise GroqTranscriptionError(
+                        "cloud_rate_limit", "Groq request limit reached", retryable=True
+                    ) from exc
+                if exc.__class__.__name__ == "APIConnectionError":
+                    raise GroqTranscriptionError(
+                        "network", "Network connection to Groq failed", retryable=True
+                    ) from exc
+                raise GroqTranscriptionError("cloud_failed", "Groq transcription failed") from exc
 
-        raise GroqTranscriptionError("Groq transcription failed after all retries")
+        raise GroqTranscriptionError("cloud_failed", "Groq transcription failed after all retries")
 
     def _ensure_model(self):
         if self._model is not None:
@@ -167,9 +181,9 @@ class Transcriber:
                 download_root=None,
             )
             logger.info("Local Whisper model '%s' loaded on CPU int8", self.model_size)
-        except Exception:
+        except Exception as exc:
             logger.exception("Could not load local Whisper model")
-            raise
+            raise BackendError("local_model_missing", "Local Whisper model is unavailable") from exc
 
     def reload(self, model_size: str):
         self.model_size = model_size
@@ -185,7 +199,7 @@ class Transcriber:
             best_of=1,
             condition_on_previous_text=False,
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=300),
+            vad_parameters={"min_silence_duration_ms": 300},
         )
         parts = [seg.text.strip() for seg in segments]
         logger.info("Local audio language: %s (%.2f)", info.language, info.language_probability)
@@ -200,20 +214,42 @@ class Transcriber:
             best_of=5,
             condition_on_previous_text=True,
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500),
+            vad_parameters={"min_silence_duration_ms": 500},
         )
         parts = [seg.text.strip() for seg in segments]
         logger.info("Local file language: %s (%.2f)", info.language, info.language_probability)
         return normalize_text(" ".join(parts))
 
-    def transcribe(self, audio: np.ndarray, language=None) -> str:
+    def _can_fallback_locally(self) -> bool:
+        try:
+            self._ensure_model()
+            return True
+        except BackendError:
+            return False
+
+    def transcribe(self, audio: np.ndarray | str | Path, language=None) -> str:
+        """Transcribe only through the selected profile; fallback is explicit and local."""
+        local_audio: np.ndarray | None = None
+        cloud_bytes: bytes | None = None
+        if isinstance(audio, (str, Path)):
+            path = Path(audio)
+            cloud_bytes = path.read_bytes()
+        else:
+            local_audio = audio
+            cloud_bytes = _audio_to_wav_bytes(audio)
         if self._backend() == GROQ_BACKEND:
             try:
-                audio_bytes = _audio_to_wav_bytes(audio)
-                return self._transcribe_groq_bytes(audio_bytes, "recording.wav", language=language)
+                return self._transcribe_groq_bytes(cloud_bytes, "recording.wav", language=language)
             except GroqTranscriptionError as exc:
-                logger.warning("Groq backend failed, falling back to local Whisper: %s", exc)
-        return self._transcribe_local_audio(audio, language=language)
+                if not self.config.get("allow_local_fallback", False) or not self._can_fallback_locally():
+                    raise
+                logger.warning("Cloud backend failed; using configured local fallback (%s)", exc.code)
+                if self.on_backend_switch:
+                    self.on_backend_switch("Groq is unavailable; switching to the selected local model.")
+        if local_audio is None:
+            # faster-whisper accepts an audio path directly, but this method preserves the live API.
+            return self._transcribe_local_file(audio, language=language)
+        return self._transcribe_local_audio(local_audio, language=language)
 
     def transcribe_file(self, file_path, language=None) -> str:
         if self._backend() == GROQ_BACKEND:
@@ -221,5 +257,9 @@ class Transcriber:
                 path = Path(file_path)
                 return self._transcribe_groq_bytes(path.read_bytes(), path.name or "audio.wav", language=language)
             except GroqTranscriptionError as exc:
-                logger.warning("Groq file backend failed, falling back to local Whisper: %s", exc)
+                if not self.config.get("allow_local_fallback", False) or not self._can_fallback_locally():
+                    raise
+                logger.warning("Cloud file backend failed; using configured local fallback (%s)", exc.code)
+                if self.on_backend_switch:
+                    self.on_backend_switch("Groq is unavailable; switching the file job to local Whisper.")
         return self._transcribe_local_file(file_path, language=language)
