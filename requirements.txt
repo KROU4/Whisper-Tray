@@ -6,27 +6,35 @@ anyio==4.14.2
     # via
     #   groq
     #   httpx
-av==18.0.0
+av==17.1.0
     # via faster-whisper
+backports-tarfile==1.2.0
+    # via jaraco-context
 certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
     #   requests
 cffi==2.1.1
-    # via sounddevice
+    # via
+    #   cryptography
+    #   sounddevice
 charset-normalizer==3.4.9
     # via requests
 click==8.4.2
     # via huggingface-hub
-colorama==0.4.6
-    # via
-    #   click
-    #   tqdm
+coloredlogs==15.0.1
+    # via onnxruntime
+cryptography==50.0.0
+    # via secretstorage
 ctranslate2==4.8.1
     # via faster-whisper
 distro==1.9.0
     # via groq
+evdev==1.9.3
+    # via pynput
+exceptiongroup==1.3.1
+    # via anyio
 faster-whisper==1.1.1
     # via -r requirements.in
 filelock==3.32.2
@@ -51,29 +59,39 @@ huggingface-hub==1.27.0
     # via
     #   faster-whisper
     #   tokenizers
+humanfriendly==10.0
+    # via coloredlogs
 idna==3.18
     # via
     #   anyio
     #   httpx
     #   requests
+importlib-metadata==9.0.0
+    # via keyring
 jaraco-classes==3.4.0
     # via keyring
 jaraco-context==6.1.2
     # via keyring
 jaraco-functools==4.6.0
     # via keyring
+jeepney==0.9.0
+    # via
+    #   keyring
+    #   secretstorage
 keyring==25.7.0
     # via -r requirements.in
 more-itertools==11.1.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-numpy==2.2.2
+mpmath==1.3.0
+    # via sympy
+numpy==2.2.6
     # via
     #   -r requirements.in
     #   ctranslate2
     #   onnxruntime
-onnxruntime==1.28.0
+onnxruntime==1.23.2
     # via faster-whisper
 packaging==26.3
     # via
@@ -93,24 +111,28 @@ pyperclip==1.11.0
     # via -r requirements.in
 pyside6-essentials==6.8.1
     # via -r requirements.in
-pywin32-ctypes==0.2.3
-    # via keyring
+python-xlib==0.33
+    # via pynput
 pyyaml==6.0.3
     # via
     #   ctranslate2
     #   huggingface-hub
 requests==2.34.2
     # via -r requirements.in
-setuptools==83.0.0
-    # via ctranslate2
+secretstorage==3.5.0
+    # via keyring
 shiboken6==6.8.1
     # via pyside6-essentials
 six==1.17.0
-    # via pynput
+    # via
+    #   pynput
+    #   python-xlib
 sniffio==1.3.1
     # via groq
 sounddevice==0.5.1
     # via -r requirements.in
+sympy==1.14.0
+    # via onnxruntime
 tokenizers==0.23.1
     # via faster-whisper
 tqdm==4.70.0
@@ -120,6 +142,8 @@ tqdm==4.70.0
 typing-extensions==4.16.0
     # via
     #   anyio
+    #   cryptography
+    #   exceptiongroup
     #   groq
     #   huggingface-hub
     #   pydantic
@@ -129,3 +153,5 @@ typing-inspection==0.4.2
     # via pydantic
 urllib3==2.7.0
     # via requests
+zipp==4.1.0
+    # via importlib-metadata
