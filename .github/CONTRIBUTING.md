@@ -3,7 +3,7 @@
 ## Before changing code
 
 Open an issue for behavior or architecture changes. Security reports follow
-`SECURITY.md` and must not contain sensitive data.
+`.github/SECURITY.md` and must not contain sensitive data.
 
 ## Local checks
 
@@ -26,5 +26,4 @@ python -m uv pip compile requirements.in -o requirements.txt
 python -m uv pip compile requirements-dev.in -o requirements-dev.txt
 ```
 
-Native package changes must be validated on the target operating system. See
-`docs/PACKAGING.md`.
+Native package changes must be validated on the target operating system.

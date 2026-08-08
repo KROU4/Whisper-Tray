@@ -35,15 +35,6 @@ Privacy is the default. A Groq failure never changes the profile or sends audio
 to another service. The Groq API key is stored in the operating-system
 credential vault, not in `config.json`.
 
-## Screenshots
-
-| Ready | Recording | Error |
-| --- | --- | --- |
-| ![Main window ready](artifacts/screenshots/main-idle.png) | ![Main window recording](artifacts/screenshots/main-recording.png) | ![Main window error](artifacts/screenshots/main-error.png) |
-
-See [settings, diagnostics, the tray menu, and overlay states](artifacts/screenshots)
-for additional verified captures.
-
 ## Install and first run
 
 Download the installer for your OS from [GitHub Releases](https://github.com/KROU4/Whisper-Tray/releases):
@@ -107,14 +98,21 @@ generated from their matching `.in` files with `uv pip compile`.
 ## Packaging and releases
 
 WhisperTray uses Briefcase for native packages, so each package must be built
-on its target OS. See [packaging documentation](docs/PACKAGING.md) for commands,
-signing requirements, and release acceptance checks. The
-`.github/workflows/release.yml` workflow runs for `v*` tags, tests the project
-on Windows, macOS, and Ubuntu, builds packages, and then creates a GitHub
-Release containing them.
+on its target OS. The `.github/workflows/release.yml` workflow runs for `v*`
+tags, tests the project on Windows, macOS, and Ubuntu, builds native packages,
+and creates a GitHub Release. A local Windows build uses:
+
+```powershell
+python -m briefcase create windows --no-input
+python -m briefcase build windows --no-input
+python -m briefcase package windows --no-input
+```
+
+For macOS or Linux, replace `windows` with `macOS` or `linux` and run the
+commands on that operating system.
 
 ## Security
 
 Never commit `config.json`, logs, audio, transcript history, or API keys. If a
-key enters Git history, revoke it immediately. See [SECURITY.md](SECURITY.md)
-for vulnerability reporting guidance.
+key enters Git history, revoke it immediately. See the
+[security policy](.github/SECURITY.md) for vulnerability reporting guidance.

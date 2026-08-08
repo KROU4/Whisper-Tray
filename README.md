@@ -34,15 +34,6 @@ WhisperTray — настольное приложение для диктовк�
 отправляет аудио другому сервису. API-ключ Groq хранится в системном хранилище
 учетных данных, а не в `config.json`.
 
-## Скриншоты
-
-| Готово | Запись | Ошибка |
-| --- | --- | --- |
-| ![Главное окно в ожидании](artifacts/screenshots/main-idle.png) | ![Главное окно во время записи](artifacts/screenshots/main-recording.png) | ![Главное окно с ошибкой](artifacts/screenshots/main-error.png) |
-
-Другие проверенные снимки: [настройки, диагностика, меню трея и состояния
-оверлея](artifacts/screenshots).
-
 ## Установка и первый запуск
 
 Загрузите установщик для своей ОС из [GitHub Releases](https://github.com/KROU4/Whisper-Tray/releases):
@@ -108,14 +99,21 @@ python -m compileall -q .
 ## Упаковка и релиз
 
 Для нативных пакетов используется Briefcase: каждый пакет нужно собирать на
-своей целевой ОС. Команды, требования к подписи и приемочный список приведены в
-[документации по упаковке](docs/PACKAGING.md). Workflow
-`.github/workflows/release.yml` срабатывает при отправке тега `v*`, тестирует
-проект на Windows, macOS и Ubuntu, собирает пакеты, а затем создает GitHub
-Release с ними.
+своей целевой ОС. Workflow `.github/workflows/release.yml` срабатывает при
+отправке тега `v*`, тестирует проект на Windows, macOS и Ubuntu, собирает
+нативные пакеты и создает GitHub Release. Локальная команда сборки:
+
+```powershell
+python -m briefcase create windows --no-input
+python -m briefcase build windows --no-input
+python -m briefcase package windows --no-input
+```
+
+Для macOS или Linux замените `windows` на `macOS` или `linux` и выполняйте
+команду на соответствующей операционной системе.
 
 ## Безопасность
 
 Не добавляйте в Git `config.json`, логи, аудиофайлы, историю расшифровок или
 API-ключи. Если ключ попал в историю Git, немедленно отзовите его. Правила для
-сообщений об уязвимостях описаны в [SECURITY.md](SECURITY.md).
+сообщений об уязвимостях описаны в [политике безопасности](.github/SECURITY.md).

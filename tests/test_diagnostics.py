@@ -30,7 +30,9 @@ def test_diagnostics_are_anonymized_and_exported_atomically(tmp_path):
     assert not destination.with_suffix(".json.tmp").exists()
 
 
-def test_collect_diagnostics_uses_explicit_backend():
+def test_collect_diagnostics_uses_explicit_backend(monkeypatch):
+    monkeypatch.setattr("credentials.CredentialStore.get_groq_key", lambda _self: "")
+
     snapshot = collect_diagnostics({"transcription_backend": "local"}, backend="groq")
 
     assert snapshot["backend"] == "groq"
