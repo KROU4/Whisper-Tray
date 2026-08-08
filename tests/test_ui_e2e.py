@@ -18,7 +18,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QDialog, QPushButton  # noqa: E402
 
 from config_store import DEFAULT_CONFIG  # noqa: E402
 from ui import SettingsDialog, ViewState, WhisperTrayUi  # noqa: E402
@@ -135,6 +135,49 @@ def test_settings_save_updates_privacy_profile_without_secret(view, qt_app, monk
     assert view.state.config["profile"] == "privacy"
     assert view.state.config["transcription_backend"] == "local"
     assert "groq_api_key" not in view.state.config
+
+
+def test_completed_onboarding_opens_the_main_window(view, qt_app, monkeypatch):
+    view.window.hide()
+    view.state.config["onboarding_complete"] = False
+
+    def complete_onboarding(dialog):
+        dialog.app.state.config["onboarding_complete"] = True
+        return QDialog.Accepted
+
+    monkeypatch.setattr(SettingsDialog, "exec", complete_onboarding)
+    view.open_onboarding()
+    qt_app.processEvents()
+
+    assert view.window.isVisible()
+
+
+def test_diagnostics_are_inside_settings_and_removed_from_main_surfaces(view, qt_app, monkeypatch):
+    monkeypatch.setattr("autostart.is_enabled", lambda: False)
+    dialog = SettingsDialog(view)
+    dialog.show()
+    dialog.tabs.setCurrentIndex(2)
+    qt_app.processEvents()
+
+    assert dialog.diagnostics_field.isVisible()
+    assert dialog.autostart_enabled.isChecked() is False
+    assert "Diagnostics" not in {button.text() for button in view.window.findChildren(QPushButton)}
+    assert "Diagnostics" not in {action.text() for action in view.tray.contextMenu().actions()}
+    dialog.close()
+
+
+def test_settings_applies_autostart_checkbox(view, qt_app, monkeypatch):
+    calls = []
+    monkeypatch.setattr("autostart.is_enabled", lambda: False)
+    monkeypatch.setattr("autostart.enable", lambda: calls.append("enable") or True)
+    monkeypatch.setattr("autostart.disable", lambda: calls.append("disable") or True)
+    monkeypatch.setattr("platform_integration.parse_hotkey", lambda value: value)
+    dialog = SettingsDialog(view)
+    dialog.autostart_enabled.setChecked(True)
+    dialog.save()
+    qt_app.processEvents()
+
+    assert calls == ["enable"]
 
 
 def test_onboarding_has_three_profile_gated_steps(view, qt_app):
