@@ -89,7 +89,7 @@ pydantic-core==2.46.4
     # via pydantic
 pynput==1.8.2
     # via -r requirements.in
-pyperclip==1.9.0
+pyperclip==1.11.0
     # via -r requirements.in
 pyside6-essentials==6.8.1
     # via -r requirements.in
