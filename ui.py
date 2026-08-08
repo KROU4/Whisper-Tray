@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QStackedWidget,
     QSystemTrayIcon,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -78,6 +79,30 @@ QPushButton#primaryAction {
 }
 QPushButton#primaryAction:hover { background: #ff8b70; }
 QCheckBox { spacing: 8px; }
+QLabel#sectionTitle {
+    color: #fff8eb;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 4px 0 6px 0;
+}
+QTabWidget::pane {
+    border: 1px solid #343840;
+    border-radius: 9px;
+    background: #202329;
+    top: -1px;
+}
+QTabBar::tab {
+    background: #25282e;
+    color: #bdb7ad;
+    border: 1px solid #343840;
+    padding: 9px 16px;
+    min-width: 110px;
+}
+QTabBar::tab:selected {
+    background: #202329;
+    color: #fff8eb;
+    border-bottom-color: #202329;
+}
 """
 
 
@@ -128,6 +153,12 @@ STRINGS = {
         "hold": "Удерживать",
         "model": "Локальная модель",
         "appearance": "Интерфейс",
+        "general": "Основное",
+        "data_system": "Данные и система",
+        "autostart": "Запускать вместе с системой",
+        "autostart_error": "Не удалось изменить автозапуск.",
+        "diagnostics_info": "Безопасная техническая информация без ключей, аудио и текста диктовки.",
+        "diagnostics_exported": "Диагностика экспортирована без секретов, аудио и текста диктовки.",
         "hud": "Показывать индикатор",
         "contrast": "Высокий контраст",
         "motion": "Уменьшить анимацию",
@@ -181,6 +212,12 @@ STRINGS = {
         "hold": "Hold to record",
         "model": "Local model",
         "appearance": "Appearance",
+        "general": "General",
+        "data_system": "Data & system",
+        "autostart": "Launch with the system",
+        "autostart_error": "Could not change launch-at-login settings.",
+        "diagnostics_info": "Safe technical information without keys, audio, or dictated text.",
+        "diagnostics_exported": "Diagnostics exported without secrets, audio, or dictated text.",
         "hud": "Show status overlay",
         "contrast": "High contrast",
         "motion": "Reduce motion",
@@ -426,14 +463,41 @@ class SettingsDialog(QDialog):
         if onboarding:
             self._build_onboarding(layout)
             return
-        form = QFormLayout()
-        self.form = form
-        layout.addLayout(form)
+        self.setMinimumSize(660, 620)
+        self._build_settings(layout)
+
+    def _build_settings(self, layout: QVBoxLayout) -> None:
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+        self._build_general_tab()
+        self._build_appearance_tab()
+        self._build_data_tab()
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Save).setText(self.t["save"])
+        buttons.button(QDialogButtonBox.Cancel).setText(self.t["cancel"])
+        buttons.accepted.connect(self.save)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.update_profile_controls()
+
+    def _section_title(self, text: str) -> QLabel:
+        label = QLabel(text)
+        label.setObjectName("sectionTitle")
+        return label
+
+    def _build_general_tab(self) -> None:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(12)
+        layout.addWidget(self._section_title(self.t["profile"]))
+        self.form = QFormLayout()
+        layout.addLayout(self.form)
         self.profile = QComboBox()
         self.profile.addItem(self.t["privacy"], "privacy")
         self.profile.addItem(self.t["speed"], "speed")
         self.profile.setCurrentIndex(0 if self.config.get("profile") == "privacy" else 1)
-        form.addRow(self.t["profile"], self.profile)
+        self.form.addRow(self.t["profile"], self.profile)
         self.cloud_note = QLabel(self.t["cloud_note"])
         self.cloud_note.setWordWrap(True)
         layout.addWidget(self.cloud_note)
@@ -443,33 +507,11 @@ class SettingsDialog(QDialog):
         self.groq_key = QLineEdit()
         self.groq_key.setEchoMode(QLineEdit.Password)
         self.groq_key.setPlaceholderText(self.t["keychain_saved"] if self._has_groq_key() else "gsk_…")
-        form.addRow(self.t["groq_key"], self.groq_key)
+        self.form.addRow(self.t["groq_key"], self.groq_key)
         self.test_key_button = QPushButton(self.t["test_key"])
         self.test_key_button.clicked.connect(self.test_groq_key)
-        form.addRow("", self.test_key_button)
+        self.form.addRow("", self.test_key_button)
         self.profile.currentIndexChanged.connect(self.update_profile_controls)
-        self.update_profile_controls()
-        self.mic = QComboBox()
-        self.mic.addItem(self.t["default_mic"], None)
-        for name, index in input_devices():
-            self.mic.addItem(name, index)
-        wanted = self.config.get("device_index")
-        self.mic.setCurrentIndex(next((i for i in range(self.mic.count()) if self.mic.itemData(i) == wanted), 0))
-        form.addRow(self.t["microphone"], self.mic)
-        test_mic = QPushButton(self.t["test_mic"])
-        test_mic.clicked.connect(self.test_microphone)
-        form.addRow("", test_mic)
-        self.rec_lang = QComboBox()
-        self.rec_lang.addItems(["Auto", "Русский (ru)", "English (en)"])
-        self.rec_lang.setCurrentIndex({None: 0, "ru": 1, "en": 2}.get(self.config.get("language"), 0))
-        form.addRow(self.t["language"], self.rec_lang)
-        self.hotkey = QLineEdit(self.config.get("hotkey", "win+alt"))
-        form.addRow(self.t["hotkey"], self.hotkey)
-        self.hotkey_mode = QComboBox()
-        self.hotkey_mode.addItem(self.t["toggle"], "toggle")
-        self.hotkey_mode.addItem(self.t["hold"], "hold")
-        self.hotkey_mode.setCurrentIndex(1 if self.config.get("hotkey_mode") == "hold" else 0)
-        form.addRow(self.t["hotkey_mode"], self.hotkey_mode)
         self.model = QComboBox()
         for name, size in (
             ("tiny", "75 MB"),
@@ -480,50 +522,114 @@ class SettingsDialog(QDialog):
         ):
             self.model.addItem(f"{name} (~{size})", name)
         self.model.setCurrentIndex(max(0, self.model.findData(self.config.get("model", "small"))))
-        form.addRow(self.t["model"], self.model)
+        self.form.addRow(self.t["model"], self.model)
         self.prepare_model_button = QPushButton(self.t["prepare_model"])
         self.prepare_model_button.clicked.connect(self.prepare_local_model)
-        form.addRow("", self.prepare_model_button)
+        self.form.addRow("", self.prepare_model_button)
+
+        layout.addWidget(self._section_title(self.t["microphone"]))
+        audio_form = QFormLayout()
+        layout.addLayout(audio_form)
+        self.mic = QComboBox()
+        self.mic.addItem(self.t["default_mic"], None)
+        for name, index in input_devices():
+            self.mic.addItem(name, index)
+        wanted = self.config.get("device_index")
+        self.mic.setCurrentIndex(next((i for i in range(self.mic.count()) if self.mic.itemData(i) == wanted), 0))
+        audio_form.addRow(self.t["microphone"], self.mic)
+        test_mic = QPushButton(self.t["test_mic"])
+        test_mic.clicked.connect(self.test_microphone)
+        audio_form.addRow("", test_mic)
+        self.rec_lang = QComboBox()
+        self.rec_lang.addItems(["Auto", "Русский (ru)", "English (en)"])
+        self.rec_lang.setCurrentIndex({None: 0, "ru": 1, "en": 2}.get(self.config.get("language"), 0))
+        audio_form.addRow(self.t["language"], self.rec_lang)
+        self.hotkey = QLineEdit(self.config.get("hotkey", "win+alt"))
+        audio_form.addRow(self.t["hotkey"], self.hotkey)
+        self.hotkey_mode = QComboBox()
+        self.hotkey_mode.addItem(self.t["toggle"], "toggle")
+        self.hotkey_mode.addItem(self.t["hold"], "hold")
+        self.hotkey_mode.setCurrentIndex(1 if self.config.get("hotkey_mode") == "hold" else 0)
+        audio_form.addRow(self.t["hotkey_mode"], self.hotkey_mode)
+        layout.addStretch()
+        self.tabs.addTab(page, self.t["general"])
+
+    def _build_appearance_tab(self) -> None:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(12)
+        layout.addWidget(self._section_title(self.t["appearance"]))
+        form = QFormLayout()
+        layout.addLayout(form)
         self.ui_lang = QComboBox()
         self.ui_lang.addItem("Русский", "ru")
         self.ui_lang.addItem("English", "en")
         self.ui_lang.setCurrentIndex(0 if self.lang == "ru" else 1)
         form.addRow(self.t["ui_language"], self.ui_lang)
-        layout.addWidget(QLabel(self.t["appearance"]))
         hud = self.config.get("hud", {})
         self.hud_enabled = QCheckBox(self.t["hud"])
         self.hud_enabled.setChecked(hud.get("enabled", True))
-        layout.addWidget(self.hud_enabled)
+        form.addRow("", self.hud_enabled)
         self.contrast = QCheckBox(self.t["contrast"])
         self.contrast.setChecked(hud.get("high_contrast", False))
-        layout.addWidget(self.contrast)
+        form.addRow("", self.contrast)
         self.motion = QCheckBox(self.t["motion"])
         self.motion.setChecked(hud.get("reduce_motion", False))
-        layout.addWidget(self.motion)
+        form.addRow("", self.motion)
         self.position = QComboBox()
         self.position.addItem(self.t["bottom_right"], "bottom_right")
         self.position.addItem(self.t["bottom_left"], "bottom_left")
         self.position.setCurrentIndex(1 if hud.get("position") == "bottom_left" else 0)
         form.addRow(self.t["position"], self.position)
+        layout.addStretch()
+        self.tabs.addTab(page, self.t["appearance"])
+
+    def _build_data_tab(self) -> None:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(12)
+        layout.addWidget(self._section_title(self.t["data_system"]))
+        system_form = QFormLayout()
+        layout.addLayout(system_form)
+        from autostart import is_enabled
+
+        self.autostart_initial = is_enabled()
+        self.autostart_enabled = QCheckBox(self.t["autostart"])
+        self.autostart_enabled.setChecked(self.autostart_initial)
+        system_form.addRow("", self.autostart_enabled)
         history = self.config.get("history", {})
         self.history_enabled = QCheckBox(self.t["history"])
         self.history_enabled.setChecked(history.get("enabled", False))
-        layout.addWidget(self.history_enabled)
+        system_form.addRow("", self.history_enabled)
         self.retention = QComboBox()
         for days in (7, 30, 90, 365):
             self.retention.addItem(f"{days} {self.t['days']}", days)
         self.retention.setCurrentIndex(max(0, self.retention.findData(history.get("retention_days", 30))))
-        form.addRow(self.t["retention"], self.retention)
+        system_form.addRow(self.t["retention"], self.retention)
         clear_history = QPushButton(self.t["clear_history"])
         clear_history.clicked.connect(self.clear_history)
-        form.addRow("", clear_history)
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Save).setText(self.t["save"])
-        buttons.button(QDialogButtonBox.Cancel).setText(self.t["cancel"])
-        buttons.accepted.connect(self.save)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-        self.update_profile_controls()
+        system_form.addRow("", clear_history)
+
+        layout.addWidget(self._section_title(self.t["diagnostics"]))
+        note = QLabel(self.t["diagnostics_info"])
+        note.setObjectName("detailLabel")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        from diagnostics import collect_diagnostics
+
+        self.diagnostics_field = QPlainTextEdit(
+            json.dumps(collect_diagnostics(self.app.state.config), ensure_ascii=False, indent=2)
+        )
+        self.diagnostics_field.setReadOnly(True)
+        self.diagnostics_field.setMaximumHeight(130)
+        layout.addWidget(self.diagnostics_field)
+        export = QPushButton(self.t["export_diagnostics"])
+        export.clicked.connect(self.export_diagnostics)
+        layout.addWidget(export)
+        layout.addStretch()
+        self.tabs.addTab(page, self.t["data_system"])
 
     @staticmethod
     def _has_groq_key() -> bool:
@@ -576,6 +682,14 @@ class SettingsDialog(QDialog):
                 },
             }
         )
+        autostart_changed = False
+        autostart_desired = getattr(self, "autostart_initial", False)
+        if hasattr(self, "autostart_enabled"):
+            autostart_desired = self.autostart_enabled.isChecked()
+            autostart_changed = autostart_desired != self.autostart_initial
+            if autostart_changed and not self._set_autostart(autostart_desired):
+                QMessageBox.warning(self, APP_NAME, self.t["autostart_error"])
+                return
         try:
             key = self.groq_key.text().strip()
             if key:
@@ -584,10 +698,20 @@ class SettingsDialog(QDialog):
                 CredentialStore().set_groq_key(key)
             self.app.save_config(self.config)
         except Exception as exc:
+            if autostart_changed:
+                self._set_autostart(self.autostart_initial)
             logger.exception("Saving settings failed")
             QMessageBox.critical(self, APP_NAME, str(exc))
             return
+        if hasattr(self, "autostart_initial"):
+            self.autostart_initial = autostart_desired
         self.accept()
+
+    @staticmethod
+    def _set_autostart(enabled: bool) -> bool:
+        from autostart import disable, enable
+
+        return enable() if enabled else disable()
 
     def update_profile_controls(self) -> None:
         cloud = self.profile.currentData() == "speed"
@@ -865,43 +989,15 @@ class SettingsDialog(QDialog):
         HistoryStore().clear()
         QMessageBox.information(self, APP_NAME, "Local transcript history was cleared.")
 
-
-class DiagnosticsDialog(QDialog):
-    def __init__(self, app: "WhisperTrayUi"):
-        super().__init__(app.window)
-        self.setWindowTitle(STRINGS[app.lang]["diagnostics"])
-        self.resize(520, 340)
-        info = {
-            "version": "1.0",
-            "profile": app.state.config.get("profile", "legacy"),
-            "backend": app.state.config.get("transcription_backend"),
-            "hotkey": app.state.config.get("hotkey"),
-            "microphone": app.state.config.get("device_index"),
-            "python": sys.version.split()[0],
-            "platform": sys.platform,
-        }
-        field = QPlainTextEdit(json.dumps(info, ensure_ascii=False, indent=2))
-        field.setReadOnly(True)
-        layout = QVBoxLayout(self)
-        layout.addWidget(field)
-        row = QHBoxLayout()
-        export = QPushButton(STRINGS[app.lang]["export_diagnostics"])
-        export.clicked.connect(lambda: self.export(app))
-        close = QPushButton("OK")
-        close.clicked.connect(self.accept)
-        row.addWidget(export)
-        row.addWidget(close)
-        layout.addLayout(row)
-
-    def export(self, app: "WhisperTrayUi") -> None:
+    def export_diagnostics(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, APP_NAME, "whispertray-diagnostics.json", "JSON (*.json)")
         if not path:
             return
         try:
             from diagnostics import export_diagnostics
 
-            export_diagnostics(path, app.state.config)
-            QMessageBox.information(self, APP_NAME, "Diagnostics exported without secrets, audio, or transcript text.")
+            export_diagnostics(path, self.app.state.config)
+            QMessageBox.information(self, APP_NAME, self.t["diagnostics_exported"])
         except Exception as exc:
             logger.exception("Diagnostics export failed")
             QMessageBox.critical(self, APP_NAME, str(exc))
@@ -960,14 +1056,9 @@ class WhisperTrayUi:
         self.action_button.setObjectName("primaryAction")
         self.action_button.clicked.connect(self.toggle_recording)
         layout.addWidget(self.action_button)
-        row = QHBoxLayout()
         settings = QPushButton(self.t["settings"])
         settings.clicked.connect(self.open_settings)
-        diagnostics = QPushButton(self.t["diagnostics"])
-        diagnostics.clicked.connect(self.open_diagnostics)
-        row.addWidget(settings)
-        row.addWidget(diagnostics)
-        layout.addLayout(row)
+        layout.addWidget(settings)
         self.window.setCentralWidget(root)
 
     def build_tray(self) -> None:
@@ -986,9 +1077,6 @@ class WhisperTrayUi:
         settings = QAction(self.t["settings"], menu)
         settings.triggered.connect(self.open_settings)
         menu.addAction(settings)
-        diag = QAction(self.t["diagnostics"], menu)
-        diag.triggered.connect(self.open_diagnostics)
-        menu.addAction(diag)
         menu.addSeparator()
         quit_action = QAction(self.t["quit"], menu)
         quit_action.triggered.connect(self.quit)
@@ -1135,10 +1223,20 @@ class WhisperTrayUi:
         SettingsDialog(self).exec()
 
     def open_onboarding(self) -> None:
-        SettingsDialog(self, onboarding=True).exec()
+        result = SettingsDialog(self, onboarding=True).exec()
+        if result == QDialog.Accepted and self.state.config.get("onboarding_complete", False):
+            self.start_hotkey_listener()
+            self.show_window()
+        else:
+            self.quit()
 
-    def open_diagnostics(self) -> None:
-        DiagnosticsDialog(self).exec()
+    def start_hotkey_listener(self) -> None:
+        listener = getattr(self.state, "hotkey_listener", None)
+        running = getattr(self.state, "hotkey_thread", None)
+        if listener is None or (running and running.is_alive()):
+            return
+        self.state.hotkey_thread = threading.Thread(target=listener.run, daemon=True, name="HotkeyThread")
+        self.state.hotkey_thread.start()
 
     def save_config(self, config: dict) -> None:
         operation_lock = getattr(self.state, "operation_lock", None) or threading.RLock()
@@ -1237,12 +1335,9 @@ def run_qt(state) -> int:
     ui = WhisperTrayUi(state)
     state.tray_app = ui
     state.on_transcript = lambda text: ui.ui_events.put(("transcript", text))
-    listener = getattr(state, "hotkey_listener", None)
-    if listener:
-        state.hotkey_thread = threading.Thread(target=listener.run, daemon=True, name="HotkeyThread")
-        state.hotkey_thread.start()
     if not state.config.get("onboarding_complete", False):
         QTimer.singleShot(0, ui.open_onboarding)
     else:
+        ui.start_hotkey_listener()
         ui.show_window()
     return app.exec()

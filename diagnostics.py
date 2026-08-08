@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 _SECRET_KEYS = frozenset({"groq_api_key", "api_key", "token", "password", "secret"})
 
 

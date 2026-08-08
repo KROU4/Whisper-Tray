@@ -38,7 +38,7 @@ jobs:
       - run: python -m pytest -q
       - run: python -m briefcase create ${{ matrix.platform }} --no-input
       - if: matrix.platform == 'windows'
-        run: python tools/add_windows_desktop_shortcut.py
+        run: python tools/patch_windows_installer.py
       - run: python -m briefcase build ${{ matrix.platform }} --no-input
       - if: matrix.platform == 'windows'
         run: python -m briefcase package windows --no-input
