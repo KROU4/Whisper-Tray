@@ -16,6 +16,12 @@ author = "KROU4"
 [tool.briefcase.app.whispertray]
 formal_name = "WhisperTray"
 description = "Privacy-aware desktop dictation."
+long_description = """
+WhisperTray is a cross-platform desktop dictation application with a local
+privacy profile and an optional Groq speed profile. It provides a global
+hotkey, microphone selection, visible recording status, and native desktop
+integration.
+"""
 sources = [
     "src/whispertray", "autostart.py", "config_store.py", "core.py", "credentials.py",
     "diagnostics.py", "file_transcriber.py", "history_store.py", "hotkey.py",
