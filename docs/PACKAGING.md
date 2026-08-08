@@ -1,10 +1,10 @@
-# Native packaging and release
+# Нативная упаковка и релиз
 
-WhisperTray uses Briefcase 0.3.25. Each package is built on its target operating
-system because native runtimes, signing tools, and installer formats are not
-cross-compiled.
+WhisperTray использует Briefcase 0.3.25. Установщики собираются на целевой ОС:
+нативные рантаймы, форматы установщиков и средства подписи не
+кросс-компилируются.
 
-## Local preparation
+## Подготовка
 
 ```powershell
 python -m venv .venv
@@ -12,10 +12,10 @@ python -m venv .venv
 python -m pip install -r requirements-dev.txt
 ```
 
-After source changes run `briefcase update <platform>`. After dependency changes
-run `briefcase update -r <platform>`.
+После изменения исходного кода выполните `briefcase update <platform>`. После
+изменения зависимостей — `briefcase update -r <platform>`.
 
-## Windows MSI
+## Windows: MSI
 
 ```powershell
 python -m briefcase create windows --no-input
@@ -24,11 +24,11 @@ python -m briefcase build windows --no-input
 python -m briefcase package windows --no-input
 ```
 
-Test installation and removal in a clean Windows 10 and Windows 11 VM. Confirm
-Start menu launch, microphone permission, shortcut registration, insertion into
-at least two applications, and removal of installer-owned files.
+Проверьте установку и удаление в чистых Windows 10 и Windows 11 VM: запуск из
+меню «Пуск», доступ к микрофону, регистрацию сочетания клавиш, вставку текста
+как минимум в двух приложениях и удаление файлов установщика.
 
-## macOS DMG and PKG
+## macOS: DMG и PKG
 
 ```bash
 python -m briefcase create macOS --no-input
@@ -37,11 +37,11 @@ python -m briefcase package macOS -p dmg --adhoc-sign --no-input
 python -m briefcase package macOS -p pkg --adhoc-sign --no-input
 ```
 
-Ad-hoc signing is suitable only for CI validation. A public release needs an
-Apple Developer certificate and notarization. Test both Intel and Apple Silicon
-when both architectures are distributed.
+Ad-hoc подпись подходит только для проверки в CI. Для публичного релиза нужны
+сертификат Apple Developer и нотарификация. Если распространяются обе
+архитектуры, проверьте Intel и Apple Silicon.
 
-## Linux package
+## Linux
 
 ```bash
 python -m briefcase create linux --no-input
@@ -49,36 +49,38 @@ python -m briefcase build linux --no-input
 python -m briefcase package linux --no-input
 ```
 
-The package is distribution-specific. The GitHub workflow currently builds on
-Ubuntu. X11 is required for the global shortcut; Wayland is a documented runtime
-limitation.
+Пакет зависит от дистрибутива. Release workflow собирает его на Ubuntu.
+Глобальные сочетания клавиш требуют X11; в Wayland это ограничение отражается
+в приложении.
 
-## Automated release
+## Автоматический релиз
 
-`.github/workflows/release.yml` runs on `v*` tags. It:
+`.github/workflows/release.yml` запускается при отправке тега `v*`. Workflow:
 
-1. tests the source on each runner;
-2. builds Windows, macOS, and Linux packages;
-3. uploads each package as a workflow artifact;
-4. creates one GitHub Release containing all packages.
+1. устанавливает зависимости и запускает `python -m pytest -q` на Windows,
+   macOS и Ubuntu;
+2. собирает пакеты для каждой платформы;
+3. загружает содержимое `dist/*` как артефакты workflow;
+4. после успеха всех сборок создает один GitHub Release с объединенными
+   артефактами.
 
-Create a release only from a clean, reviewed main branch:
+Создавайте тег только из чистой, проверенной ветки `main`:
 
 ```powershell
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
-## Release acceptance
+## Приемка релиза
 
-- Full test suite and lint pass on all three operating systems.
-- No API key, transcript, log, local config, or audio exists anywhere in Git history.
-- Windows MSI installs and uninstalls on a clean VM.
-- macOS packages launch after signing/notarization checks.
-- Linux package installs on the target Ubuntu release.
-- Privacy mode is verified offline.
-- Speed mode is verified with a disposable user-owned Groq key.
-- Package size and SHA-256 are recorded in release notes.
+- Полный набор тестов проходит на трех ОС.
+- В истории Git нет API-ключей, расшифровок, логов, локального конфига и аудио.
+- MSI устанавливается и удаляется на чистой Windows VM.
+- Пакеты macOS запускаются после проверки подписи и нотарификации.
+- Linux-пакет устанавливается на целевой версии Ubuntu.
+- Режим «Приватность» проверен без сети.
+- Режим «Скорость» проверен одноразовым пользовательским ключом Groq.
+- В заметках к релизу зафиксированы размер пакетов и SHA-256.
 
-The local Whisper model is downloaded after installation and is never embedded
-in a release package.
+Локальная модель Whisper скачивается после установки и не включается в релизный
+пакет.

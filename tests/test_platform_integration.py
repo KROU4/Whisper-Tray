@@ -8,6 +8,8 @@ import platform_integration
 
 class FakeKey:
     ctrl = "CTRL"
+    ctrl_l = "CTRL_L"
+    ctrl_r = "CTRL_R"
     alt = "ALT"
     shift = "SHIFT"
     cmd = "CMD"
@@ -49,6 +51,55 @@ def test_global_hotkey_hold_fires_once_and_stops_on_final_release(monkeypatch):
     hotkey._on_release("SPACE")
     assert fired == [True]
     assert released == [True]
+
+
+def test_global_hotkey_normalizes_side_specific_modifiers(monkeypatch):
+    monkeypatch.setattr(platform_integration, "_pynput_keyboard", fake_keyboard)
+    fired = []
+    hotkey = platform_integration.GlobalHotkey("ctrl+space", lambda: fired.append(True))
+    hotkey._keys = platform_integration.parse_hotkey("ctrl+space")
+    hotkey._listener = SimpleNamespace(
+        canonical=lambda key: {"CTRL_L": "CTRL", "CTRL_R": "CTRL"}.get(key, key)
+    )
+
+    hotkey._on_press("CTRL_L")
+    hotkey._on_press("SPACE")
+    hotkey._on_release("SPACE")
+    hotkey._on_release("CTRL_L")
+    hotkey._on_press("CTRL_R")
+    hotkey._on_press("SPACE")
+
+    assert fired == [True, True]
+
+
+def test_global_hotkey_canonicalizes_configured_modifier_and_final_key(monkeypatch):
+    class CanonicalListener:
+        def __init__(self, on_press, on_release):
+            self.on_press = on_press
+            self.on_release = on_release
+
+        @staticmethod
+        def canonical(key):
+            return {"CTRL": "CTRL_CANON", "SPACE": "SPACE_CANON"}.get(key, key)
+
+        def start(self):
+            return None
+
+    keyboard = SimpleNamespace(
+        Key=FakeKey,
+        KeyCode=FakeKeyCode,
+        Listener=CanonicalListener,
+    )
+    monkeypatch.setattr(platform_integration, "_pynput_keyboard", lambda: keyboard)
+    fired = []
+
+    hotkey = platform_integration.GlobalHotkey("ctrl+space", lambda: fired.append(True))
+    hotkey.start()
+    hotkey._on_press("CTRL")
+    hotkey._on_press("SPACE")
+
+    assert hotkey._keys == ("CTRL_CANON", "SPACE_CANON")
+    assert fired == [True]
 
 
 def test_text_inserter_uses_clipboard_when_input_permission_fails(monkeypatch):

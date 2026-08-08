@@ -1,0 +1,120 @@
+# WhisperTray
+
+[Русский](README.md) | [English](README.en.md)
+
+<p align="center">
+  <img src="assets/whispertray-logo.png" width="160" alt="WhisperTray logo">
+</p>
+
+WhisperTray is a desktop dictation app for Windows, macOS, and Linux. Press a
+global shortcut, speak, and the app transcribes your speech and inserts the
+result into the active window. It can run locally or use Groq when you
+explicitly choose the cloud profile and provide your own API key.
+
+> Current release: [WhisperTray 1.1.0](https://github.com/KROU4/Whisper-Tray/releases/tag/v1.1.0).
+> Native installers are built automatically for Windows, macOS, and Linux.
+
+## Features
+
+- Records from the selected microphone, with a ten-minute limit per dictation.
+- Local `faster-whisper` transcription in the Privacy profile.
+- Groq transcription in the Speed profile with your API key.
+- Recording, processing, result, and error status in the window, overlay, and
+  tray.
+- Transcribes individual audio and video files.
+- Optional local transcript history.
+
+## Profiles and privacy
+
+| Profile | Where audio goes | Fallback |
+| --- | --- | --- |
+| Privacy | It stays on the device and uses a local Whisper model | None |
+| Speed | It is sent to Groq | A local model only when explicitly enabled in Settings |
+
+Privacy is the default. A Groq failure never changes the profile or sends audio
+to another service. The Groq API key is stored in the operating-system
+credential vault, not in `config.json`.
+
+## Screenshots
+
+| Ready | Recording | Error |
+| --- | --- | --- |
+| ![Main window ready](artifacts/screenshots/main-idle.png) | ![Main window recording](artifacts/screenshots/main-recording.png) | ![Main window error](artifacts/screenshots/main-error.png) |
+
+See [settings, diagnostics, the tray menu, and overlay states](artifacts/screenshots)
+for additional verified captures.
+
+## Install and first run
+
+Download the installer for your OS from [GitHub Releases](https://github.com/KROU4/Whisper-Tray/releases):
+
+- Windows: `.msi`
+- macOS: `.dmg` or `.pkg`
+- Linux: the native package built for Ubuntu by the release workflow
+
+On first run, choose a profile, microphone, language, and shortcut. Then:
+
+1. In Privacy, prepare or download a local model in Settings.
+2. In Speed, enter and test a Groq key. It is saved only after it can be
+   stored in the system credential vault.
+
+Local models are not part of the installer and download on demand. The sizes
+shown in the app range from about 75 MB (`tiny`) to 2.9 GB (`large`).
+
+### Permissions and limitations
+
+- Windows: allow microphone access in Privacy settings.
+- macOS: allow Microphone and Accessibility access. Accessibility is required
+  for global shortcuts and text insertion.
+- Linux: the microphone must be available to the desktop session. Global
+  shortcuts work on X11; on Wayland the app explicitly reports that they are
+  unavailable.
+
+## Data location
+
+| System | Application directory |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\\WhisperTray` |
+| macOS | `~/Library/Application Support/WhisperTray` |
+| Linux | `$XDG_DATA_HOME/WhisperTray` or `~/.local/share/WhisperTray` |
+
+This directory holds settings, technical logs, optional history, and file
+transcription results. Logs exclude audio, transcript text, and credentials.
+
+## Development
+
+Python 3.10 or later is required. In PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+python main.py
+```
+
+On macOS and Linux, activate the environment with `source .venv/bin/activate`.
+Check changes with:
+
+```powershell
+python -m pytest -q
+ruff check .
+python -m compileall -q .
+```
+
+`requirements.txt` and `requirements-dev.txt` are pinned dependency files
+generated from their matching `.in` files with `uv pip compile`.
+
+## Packaging and releases
+
+WhisperTray uses Briefcase for native packages, so each package must be built
+on its target OS. See [packaging documentation](docs/PACKAGING.md) for commands,
+signing requirements, and release acceptance checks. The
+`.github/workflows/release.yml` workflow runs for `v*` tags, tests the project
+on Windows, macOS, and Ubuntu, builds packages, and then creates a GitHub
+Release containing them.
+
+## Security
+
+Never commit `config.json`, logs, audio, transcript history, or API keys. If a
+key enters Git history, revoke it immediately. See [SECURITY.md](SECURITY.md)
+for vulnerability reporting guidance.
