@@ -39,7 +39,7 @@ icon = "assets/whispertray"
 min_os_version = "12.0"
 
 # Briefcase builds matching-host artifacts: Windows MSI, macOS DMG/PKG and
-# Linux native system packages. See docs/PACKAGING.md.
+# Briefcase builds native packages on their matching host operating system.
 
 [tool.ruff]
 target-version = "py310"

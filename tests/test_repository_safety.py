@@ -1,15 +1,14 @@
-import json
 from pathlib import Path
+
+from config_store import DEFAULT_CONFIG
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_example_config_is_safe_and_privacy_first():
-    config = json.loads((ROOT / "config.example.json").read_text(encoding="utf-8"))
-
-    assert config["profile"] == "privacy"
-    assert config["transcription_backend"] == "local"
-    assert "groq_api_key" not in config
+def test_default_config_is_safe_and_privacy_first():
+    assert DEFAULT_CONFIG["profile"] == "privacy"
+    assert DEFAULT_CONFIG["transcription_backend"] == "local"
+    assert "groq_api_key" not in DEFAULT_CONFIG
 
 
 def test_local_config_and_logs_are_ignored():

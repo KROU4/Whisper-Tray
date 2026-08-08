@@ -34,3 +34,4 @@ dist-installer/
 .vscode/
 .idea/
 /demo
+/artifacts/
