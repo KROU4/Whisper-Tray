@@ -29,6 +29,9 @@ requires = [
 ]
 icon = "assets/whispertray"
 
+[tool.briefcase.app.whispertray.macOS]
+min_os_version = "12.0"
+
 # Briefcase builds matching-host artifacts: Windows MSI, macOS DMG/PKG and
 # Linux native system packages. See docs/PACKAGING.md.
 
