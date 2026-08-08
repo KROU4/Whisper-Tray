@@ -1,99 +1,90 @@
 # WhisperTray
 
+[Русский](README.md) | [English](README.en.md)
+
 <p align="center">
-  <img src="assets/whispertray-logo.png" width="160" alt="WhisperTray logo">
+  <img src="assets/whispertray-logo.png" width="160" alt="Логотип WhisperTray">
 </p>
 
-WhisperTray is a desktop dictation app for Windows, macOS, and Linux. Press a
-global shortcut, speak, and the transcript is inserted into the active app. It
-supports a fully local privacy profile and an optional Groq profile that uses
-your own API key.
+WhisperTray — настольное приложение для диктовки под Windows, macOS и Linux.
+Нажмите глобальное сочетание клавиш, произнесите текст — приложение распознает
+речь и вставит результат в активное окно. Оно работает локально либо с Groq,
+когда пользователь явно выбирает облачный режим и указывает свой API-ключ.
 
-> Release status: pre-release. Native installers are built automatically from
-> version tags, but the first public release has not been published yet.
+> Актуальный релиз: [WhisperTray 1.1.0](https://github.com/KROU4/Whisper-Tray/releases/tag/v1.1.0).
+> Нативные установщики собираются автоматически для Windows, macOS и Linux.
 
-## What it does
+## Возможности
 
-- Records from a selected microphone with a ten-minute safety limit.
-- Transcribes locally with `faster-whisper`, or through Groq when explicitly selected.
-- Shows the same recording, processing, success, and error state in the window,
-  overlay, and tray.
-- Stores the Groq key in the operating-system credential vault, never in JSON.
-- Keeps transcript history only when the user enables it.
-- Transcribes individual audio and video files.
+- Запись с выбранного микрофона: не более 10 минут за одну диктовку.
+- Локальное распознавание через `faster-whisper` в режиме «Приватность».
+- Распознавание через Groq в режиме «Скорость» с API-ключом пользователя.
+- Индикаторы записи, обработки, результата и ошибки в окне, оверлее и трее.
+- Распознавание отдельных аудио- и видеофайлов.
+- Необязательная локальная история расшифровок.
 
-## Privacy profiles
+## Режимы и приватность
 
-| Profile | Audio destination | Network use | Fallback |
-| --- | --- | --- | --- |
-| Privacy | Local Whisper only | No transcription request leaves the device | None |
-| Speed | Groq API | Audio is sent to Groq | Local fallback only when the user enables it and the local model is available |
-
-Changing profile always requires an explicit settings change. A cloud failure
-never sends audio anywhere else and never changes the privacy profile silently.
-
-## Screens
-
-| Ready | Recording | Error recovery |
+| Режим | Куда попадает аудио | Резервный вариант |
 | --- | --- | --- |
-| ![Ready state](artifacts/screenshots/main-idle.png) | ![Recording state](artifacts/screenshots/main-recording.png) | ![Error state](artifacts/screenshots/main-error.png) |
+| Приватность | Не покидает устройство: используется локальная модель Whisper | Нет |
+| Скорость | Отправляется в Groq | Локальная модель — только при явном включении в настройках |
 
-Additional verified captures are in
-[`artifacts/screenshots`](artifacts/screenshots), including settings,
-diagnostics, the tray menu, and every overlay state.
+Режим по умолчанию — «Приватность». Ошибка Groq не меняет режим и не
+отправляет аудио другому сервису. API-ключ Groq хранится в системном хранилище
+учетных данных, а не в `config.json`.
 
-## Installation
+## Скриншоты
 
-Download the package for your system from GitHub Releases:
+| Готово | Запись | Ошибка |
+| --- | --- | --- |
+| ![Главное окно в ожидании](artifacts/screenshots/main-idle.png) | ![Главное окно во время записи](artifacts/screenshots/main-recording.png) | ![Главное окно с ошибкой](artifacts/screenshots/main-error.png) |
 
-- Windows: `.msi`
-- macOS: `.dmg` or `.pkg`
-- Linux: the native package produced for the release runner
+Другие проверенные снимки: [настройки, диагностика, меню трея и состояния
+оверлея](artifacts/screenshots).
 
-Windows installation creates Start menu integration through MSI. Desktop
-shortcut behavior belongs to the native installer and is verified in the
-release smoke checklist.
+## Установка и первый запуск
 
-The installer cannot realistically be 20 MB. Python, Qt, the audio stack and
-the transcription runtime are substantially larger before a Whisper model is
-downloaded. Models are therefore downloaded on demand and are not bundled in
-the installer.
+Загрузите установщик для своей ОС из [GitHub Releases](https://github.com/KROU4/Whisper-Tray/releases):
 
-### Platform permissions
+- Windows — `.msi`;
+- macOS — `.dmg` или `.pkg`;
+- Linux — нативный пакет, собранный для Ubuntu в релизном workflow.
 
-- Windows: allow microphone access in Privacy settings.
-- macOS: allow Microphone and Accessibility access. Accessibility permission is
-  required for global shortcuts and insertion into other apps.
-- Linux: microphone access must be available to the desktop session. Global
-  shortcuts currently require X11; Wayland reports an explicit unsupported
-  state instead of pretending the shortcut was registered.
+На первом запуске выберите режим, микрофон, язык и сочетание клавиш. Затем:
 
-## First run
+1. В режиме «Приватность» подготовьте или скачайте локальную модель в
+   настройках.
+2. В режиме «Скорость» введите и проверьте ключ Groq. Ключ сохраняется только
+   после успешной записи в системное хранилище.
 
-1. Choose the Privacy or Speed profile.
-2. Select the microphone and test it.
-3. Choose the recognition language and global shortcut.
-4. For Privacy, download the local model from Settings.
-5. For Speed, enter and test your Groq key. The key is saved only after the
-   credential vault accepts it.
+Локальные модели не входят в установщик и загружаются по запросу. Их размер в
+приложении — примерно от 75 МБ (`tiny`) до 2,9 ГБ (`large`).
 
-The default profile is Privacy. Local model sizes shown in the app range from
-approximately 75 MB (`tiny`) to 2.9 GB (`large`).
+### Разрешения и ограничения
 
-## Data locations
+- Windows: разрешите доступ к микрофону в параметрах конфиденциальности.
+- macOS: разрешите доступ к микрофону и к разделу «Универсальный доступ»;
+  второе разрешение нужно для глобального сочетания и вставки текста.
+- Linux: микрофон должен быть доступен в пользовательском сеансе. Глобальные
+  сочетания работают в X11; в Wayland приложение явно сообщает, что функция
+  недоступна.
 
-| System | Application data |
+## Где хранятся данные
+
+| Система | Каталог приложения |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\WhisperTray` |
+| Windows | `%LOCALAPPDATA%\\WhisperTray` |
 | macOS | `~/Library/Application Support/WhisperTray` |
-| Linux | `$XDG_DATA_HOME/WhisperTray` or `~/.local/share/WhisperTray` |
+| Linux | `$XDG_DATA_HOME/WhisperTray` или `~/.local/share/WhisperTray` |
 
-The directory contains configuration, rotating technical logs, and optional
-history. Logs do not contain transcript text, audio, or credential values.
+В этом каталоге находятся настройки, технические логи, необязательная история
+и результаты распознавания файлов. Логи не содержат аудио, текст расшифровок
+или учетные данные.
 
-## Development
+## Разработка
 
-Python 3.10 or newer is required.
+Нужен Python 3.10 или новее. В PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -102,11 +93,8 @@ python -m pip install -r requirements-dev.txt
 python main.py
 ```
 
-On macOS/Linux, activate the environment with `source .venv/bin/activate`.
-`requirements.txt` and `requirements-dev.txt` are complete resolved lock files
-generated from their matching `.in` files with `uv pip compile`.
-
-Run the quality gates:
+На macOS и Linux активируйте окружение командой `source .venv/bin/activate`.
+Проверьте изменения:
 
 ```powershell
 python -m pytest -q
@@ -114,34 +102,20 @@ ruff check .
 python -m compileall -q .
 ```
 
-The E2E suite includes a deterministic WAV pipeline. A manual real-ASR check can
-be run with a local model and a generated or recorded voice sample; it must not
-be confused with the offline mock test used in CI.
+`requirements.txt` и `requirements-dev.txt` — зафиксированные файлы зависимостей,
+сгенерированные из соответствующих `.in` файлов через `uv pip compile`.
 
-## Native packages and releases
+## Упаковка и релиз
 
-The project uses Briefcase to create host-native packages. Builds must run on
-the target operating system; Windows cannot produce a valid macOS or Linux
-installer.
+Для нативных пакетов используется Briefcase: каждый пакет нужно собирать на
+своей целевой ОС. Команды, требования к подписи и приемочный список приведены в
+[документации по упаковке](docs/PACKAGING.md). Workflow
+`.github/workflows/release.yml` срабатывает при отправке тега `v*`, тестирует
+проект на Windows, macOS и Ubuntu, собирает пакеты, а затем создает GitHub
+Release с ними.
 
-```powershell
-python -m briefcase create windows --no-input
-python tools/add_windows_desktop_shortcut.py
-python -m briefcase build windows --no-input
-python -m briefcase package windows --no-input
-```
+## Безопасность
 
-See [`docs/PACKAGING.md`](docs/PACKAGING.md) for macOS/Linux commands, signing,
-release tags, and the clean-machine checklist. Pushing a tag such as `v1.0.0`
-runs all three packaging jobs and publishes their artifacts to one GitHub
-Release.
-
-## Security
-
-- Never commit `config.json`, logs, audio, transcript history, or API keys.
-- Revoke a key immediately if it appears in Git history.
-- Public releases require a full-history secret scan.
-- Diagnostics export contains technical state only.
-
-Security and release reports should include reproduction steps without user
-audio, transcript text, or credentials.
+Не добавляйте в Git `config.json`, логи, аудиофайлы, историю расшифровок или
+API-ключи. Если ключ попал в историю Git, немедленно отзовите его. Правила для
+сообщений об уязвимостях описаны в [SECURITY.md](SECURITY.md).

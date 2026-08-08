@@ -99,27 +99,44 @@ class GlobalHotkey:
 
     def start(self) -> None:
         keyboard = _pynput_keyboard()
-        self._keys = parse_hotkey(self.shortcut)
         try:
             self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+            # Listener events are canonicalized by the platform backend. Apply
+            # the same transformation to every configured key (including the
+            # non-modifier key: Windows turns Key.space into KeyCode(32)).
+            self._keys = tuple(self._listener.canonical(key) for key in parse_hotkey(self.shortcut))
             self._listener.start()
         except Exception as exc:
             self._listener = None
             raise PlatformIntegrationError("hotkey_registration_failed", "Could not register the global shortcut.") from exc
 
     def _on_press(self, key) -> None:
+        key = self._canonical(key)
         self._pressed.add(key)
         if not self._active and all(item in self._pressed for item in self._keys):
             self._active = True
             self.on_activate()
 
     def _on_release(self, key) -> None:
+        key = self._canonical(key)
         should_release = self._active and key == self.final_key and self.on_release is not None
         self._pressed.discard(key)
         if should_release:
             self.on_release()
         if not all(item in self._pressed for item in self._keys):
             self._active = False
+
+    def _canonical(self, key):
+        """Normalise listener events before comparing them with configured keys.
+
+        ``pynput`` emits side-specific modifiers (for example ``ctrl_l``),
+        while parsed shortcuts intentionally use the platform-neutral
+        ``ctrl``.  Its own ``GlobalHotKeys`` wrapper calls this same listener
+        method before updating key state.
+        """
+        if self._listener is not None:
+            return self._listener.canonical(key)
+        return key
 
     def stop(self) -> None:
         if self._listener is not None:

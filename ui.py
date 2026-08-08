@@ -16,7 +16,7 @@ from enum import Enum
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication, QLocale, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QCursor, QGuiApplication, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QAction, QColor, QCursor, QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QStackedWidget,
     QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
@@ -85,6 +86,13 @@ def app_icon_path() -> Path:
     root = Path(__file__).resolve().parent
     source_tree = root / "assets" / "whispertray-icon.png"
     return source_tree if source_tree.exists() else root / "whispertray-icon.png"
+
+
+def app_logo_path() -> Path:
+    """Return the wider onboarding brand mark when it is packaged."""
+    root = Path(__file__).resolve().parent
+    source_tree = root / "assets" / "whispertray-logo.png"
+    return source_tree if source_tree.exists() else app_icon_path()
 
 
 class ViewState(str, Enum):
@@ -204,6 +212,43 @@ STRINGS = {
     },
 }
 
+ONBOARDING_STRINGS = {
+    "en": {
+        "heading": "Welcome to WhisperTray",
+        "subtitle": "Set up dictation in a couple of minutes",
+        "choose_profile": "Choose your audio processing profile",
+        "privacy_card": "Only on this computer",
+        "speed_card": "Processed through Groq",
+        "continue": "Continue",
+        "back": "Back",
+        "profile_setup": "Set up your profile",
+        "local_explainer": "Audio stays on this device. Choose a local Whisper model when you are ready.",
+        "cloud_explainer": "Audio is sent to Groq for transcription. It is never kept by WhisperTray.",
+        "get_groq_key": "Get a Groq API key",
+        "audio_ready": "Check your microphone and shortcut",
+        "audio_hint": "You can change these later in Settings.",
+        "finish": "Finish setup",
+        "step": "Step {current} of 3",
+    },
+    "ru": {
+        "heading": "Добро пожаловать в WhisperTray",
+        "subtitle": "Настроим диктовку за пару минут",
+        "choose_profile": "Выберите профиль обработки аудио",
+        "privacy_card": "Только на этом компьютере",
+        "speed_card": "Обработка через Groq",
+        "continue": "Продолжить",
+        "back": "Назад",
+        "profile_setup": "Настройте профиль",
+        "local_explainer": "Аудио остаётся на этом устройстве. Выберите локальную модель Whisper, когда будете готовы.",
+        "cloud_explainer": "Аудио отправляется в Groq для распознавания. WhisperTray никогда его не хранит.",
+        "get_groq_key": "Получить ключ Groq API",
+        "audio_ready": "Проверьте микрофон и горячую клавишу",
+        "audio_hint": "Позже это можно изменить в настройках.",
+        "finish": "Завершить настройку",
+        "step": "Шаг {current} из 3",
+    },
+}
+
 
 def ui_language(config: dict) -> str:
     configured = config.get("ui_language", "auto")
@@ -223,15 +268,55 @@ def input_devices() -> list[tuple[str, int | None]]:
         return []
 
 
+class RecordingPulse(QWidget):
+    """A small native-painted recorder indicator, with a motion-safe static state."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.recording = False
+        self.phase = 0
+        self.setFixedSize(46, 46)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._advance)
+
+    def set_recording(self, recording: bool, reduce_motion: bool) -> None:
+        self.recording = recording
+        if recording and not reduce_motion:
+            self.timer.start(70)
+        else:
+            self.timer.stop()
+            self.phase = 0
+        self.update()
+
+    def _advance(self) -> None:
+        self.phase = (self.phase + 1) % 20
+        self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt callback name
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        center = self.rect().center()
+        if self.recording:
+            radius = 17 + (self.phase % 10) / 5
+            painter.setPen(QPen(QColor("#ff765d"), 2))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawEllipse(center, radius, radius)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#ff765d") if self.recording else QColor("#59606b"))
+        painter.drawEllipse(center, 12, 12)
+
+
 class StatusHud(QWidget):
     def __init__(self, config: dict, lang: str):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus)
         self.config, self.lang = config, lang
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setFixedSize(260, 52)
+        self.setFixedSize(280, 58)
+        self.pulse = RecordingPulse(self)
+        self.pulse.move(8, 6)
         self.label = QLabel(self)
         self.label.setAlignment(Qt.AlignCenter)
-        self.label.setGeometry(self.rect())
+        self.label.setGeometry(50, 0, 222, 58)
 
     def show_status(self, status: ViewState, message: str | None = None) -> None:
         hud = self.config.get("hud", {})
@@ -248,12 +333,85 @@ class StatusHud(QWidget):
         fg = "#ffff00" if hud.get("high_contrast") else "white"
         self.setStyleSheet(f"background:{bg}; border-radius:12px; color:{fg};")
         self.label.setText(message or STRINGS[self.lang][status.value])
+        self.pulse.set_recording(status == ViewState.RECORDING, hud.get("reduce_motion", False))
         screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
         area = screen.availableGeometry()
         margin = 18
         x = area.left() + margin if hud.get("position") == "bottom_left" else area.right() - self.width() - margin
         self.move(x, area.bottom() - self.height() - margin)
         self.show()
+
+
+class ProfileCard(QPushButton):
+    """Large selectable profile control drawn with Qt rather than image/CSS art."""
+
+    def __init__(self, kind: str, title: str, subtitle: str, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.kind, self.title, self.subtitle = kind, title, subtitle
+        self.setCheckable(True)
+        self.setMinimumSize(260, 290)
+        self.setMaximumHeight(310)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setAccessibleName(title)
+        self.setStyleSheet("QPushButton { background: transparent; border: none; }")
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt callback name
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect().adjusted(3, 3, -3, -3)
+        accent = QColor("#ff765d")
+        painter.setPen(QPen(accent if self.isChecked() else QColor("#41454d"), 3 if self.isChecked() else 2))
+        painter.setBrush(QColor("#202329"))
+        painter.drawRoundedRect(rect, 24, 24)
+        icon_rect = rect.adjusted(0, 34, 0, 0)
+        icon_center = icon_rect.center()
+        painter.setPen(QPen(QColor("#4b4f56"), 1))
+        painter.setBrush(QColor("#292c32"))
+        painter.drawEllipse(icon_center, 52, 52)
+        painter.setPen(QPen(accent, 5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.setBrush(Qt.NoBrush)
+        if self.kind == "privacy":
+            path = QPainterPath()
+            path.moveTo(icon_center.x(), icon_center.y() - 34)
+            path.lineTo(icon_center.x() - 27, icon_center.y() - 20)
+            path.lineTo(icon_center.x() - 23, icon_center.y() + 17)
+            path.lineTo(icon_center.x(), icon_center.y() + 33)
+            path.lineTo(icon_center.x() + 23, icon_center.y() + 17)
+            path.lineTo(icon_center.x() + 27, icon_center.y() - 20)
+            path.closeSubpath()
+            painter.drawPath(path)
+            painter.setBrush(accent)
+            painter.drawRoundedRect(icon_center.x() - 10, icon_center.y() - 1, 20, 17, 4, 4)
+            painter.drawArc(icon_center.x() - 9, icon_center.y() - 15, 18, 20, 0, 180 * 16)
+        else:
+            bolt = QPainterPath()
+            bolt.moveTo(icon_center.x() + 6, icon_center.y() - 36)
+            bolt.lineTo(icon_center.x() - 25, icon_center.y() + 2)
+            bolt.lineTo(icon_center.x() - 3, icon_center.y() + 2)
+            bolt.lineTo(icon_center.x() - 10, icon_center.y() + 36)
+            bolt.lineTo(icon_center.x() + 27, icon_center.y() - 9)
+            bolt.lineTo(icon_center.x() + 5, icon_center.y() - 9)
+            bolt.closeSubpath()
+            painter.setBrush(accent)
+            painter.drawPath(bolt)
+        painter.setPen(QColor("#fff1df"))
+        font = painter.font()
+        font.setPointSize(20)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(rect.adjusted(16, 165, -16, -58), Qt.AlignCenter, self.title)
+        painter.setPen(QColor("#b9b3ab"))
+        font.setPointSize(11)
+        font.setBold(False)
+        painter.setFont(font)
+        painter.drawText(rect.adjusted(18, 212, -18, -20), Qt.AlignCenter | Qt.TextWordWrap, self.subtitle)
+        if self.isChecked():
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(accent)
+            painter.drawEllipse(rect.right() - 43, rect.top() + 14, 24, 24)
+            painter.setPen(QPen(QColor("#202329"), 3, Qt.SolidLine, Qt.RoundCap))
+            painter.drawLine(rect.right() - 38, rect.top() + 26, rect.right() - 33, rect.top() + 31)
+            painter.drawLine(rect.right() - 33, rect.top() + 31, rect.right() - 24, rect.top() + 21)
 
 
 class SettingsDialog(QDialog):
@@ -266,8 +424,10 @@ class SettingsDialog(QDialog):
         self.setWindowTitle(self.t["onboarding"] if onboarding else self.t["settings"])
         layout = QVBoxLayout(self)
         if onboarding:
-            layout.addWidget(QLabel(self.t["welcome"]))
+            self._build_onboarding(layout)
+            return
         form = QFormLayout()
+        self.form = form
         layout.addLayout(form)
         self.profile = QComboBox()
         self.profile.addItem(self.t["privacy"], "privacy")
@@ -363,6 +523,7 @@ class SettingsDialog(QDialog):
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        self.update_profile_controls()
 
     @staticmethod
     def _has_groq_key() -> bool:
@@ -432,8 +593,198 @@ class SettingsDialog(QDialog):
         cloud = self.profile.currentData() == "speed"
         self.cloud_note.setVisible(cloud)
         self.local_fallback.setVisible(cloud)
-        self.groq_key.setEnabled(cloud)
-        self.test_key_button.setEnabled(cloud)
+        for widget in (self.groq_key, self.test_key_button):
+            widget.setVisible(cloud)
+        local_widgets = (widget for widget in (getattr(self, "model", None), getattr(self, "prepare_model_button", None)) if widget)
+        for widget in local_widgets:
+            widget.setVisible(not cloud)
+        controls = [(self.groq_key, cloud), (self.test_key_button, cloud)]
+        if hasattr(self, "model"):
+            controls.extend([(self.model, not cloud), (self.prepare_model_button, not cloud)])
+        for widget, visible in controls:
+            label = self.form.labelForField(widget)
+            if label:
+                label.setVisible(visible)
+
+    def _build_onboarding(self, layout: QVBoxLayout) -> None:
+        """Focused first-run flow; normal Settings stays comprehensive below."""
+        self.setMinimumSize(700, 700)
+        self.ot = ONBOARDING_STRINGS[self.lang]
+        logo = QLabel()
+        logo.setAlignment(Qt.AlignCenter)
+        pixmap = QPixmap(str(app_logo_path()))
+        if not pixmap.isNull():
+            logo.setPixmap(pixmap.scaled(76, 76, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        layout.addWidget(logo)
+        heading = QLabel(self.ot["heading"])
+        heading.setObjectName("statusLabel")
+        heading.setAlignment(Qt.AlignCenter)
+        layout.addWidget(heading)
+        subtitle = QLabel(self.ot["subtitle"])
+        subtitle.setObjectName("detailLabel")
+        subtitle.setAlignment(Qt.AlignCenter)
+        layout.addWidget(subtitle)
+        self.progress = QLabel()
+        self.progress.setAlignment(Qt.AlignCenter)
+        self.progress.setStyleSheet("color: #ff765d; font-size: 15px; padding: 8px;")
+        layout.addWidget(self.progress)
+        self.profile = QComboBox()
+        self.profile.addItem(self.t["privacy"], "privacy")
+        self.profile.addItem(self.t["speed"], "speed")
+        self.profile.setCurrentIndex(0 if self.config.get("profile") == "privacy" else 1)
+        self.pages = QStackedWidget()
+        layout.addWidget(self.pages)
+        self._onboarding_profile_page()
+        self._onboarding_backend_page()
+        self._onboarding_audio_page()
+        self.set_onboarding_step(0)
+
+    def _onboarding_profile_page(self) -> None:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(18)
+        layout.setAlignment(Qt.AlignTop)
+        prompt = QLabel(self.ot["choose_profile"])
+        prompt.setAlignment(Qt.AlignCenter)
+        prompt.setStyleSheet("font-size: 18px; font-weight: 700; padding: 10px;")
+        layout.addWidget(prompt)
+        cards = QHBoxLayout()
+        self.privacy_card = ProfileCard("privacy", self.t["privacy"].split(" (")[0], self.ot["privacy_card"])
+        self.speed_card = ProfileCard("speed", self.t["speed"].split(" (")[0], self.ot["speed_card"])
+        self.privacy_card.clicked.connect(lambda: self._select_onboarding_profile("privacy"))
+        self.speed_card.clicked.connect(lambda: self._select_onboarding_profile("speed"))
+        cards.addWidget(self.privacy_card)
+        cards.addWidget(self.speed_card)
+        layout.addLayout(cards)
+        forward = QPushButton(self.ot["continue"])
+        forward.setObjectName("primaryAction")
+        forward.setMinimumWidth(260)
+        forward.clicked.connect(lambda: self.set_onboarding_step(1))
+        layout.addWidget(forward, alignment=Qt.AlignHCenter)
+        self.pages.addWidget(page)
+        self._select_onboarding_profile(self.profile.currentData())
+
+    def _onboarding_backend_page(self) -> None:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        title = QLabel(self.ot["profile_setup"])
+        title.setObjectName("statusLabel")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        self.backend_pages = QStackedWidget()
+        local = QWidget()
+        local_layout = QFormLayout(local)
+        local_note = QLabel(self.ot["local_explainer"])
+        local_note.setWordWrap(True)
+        local_layout.addRow(local_note)
+        self.model = QComboBox()
+        for name, size in (("tiny", "75 MB"), ("base", "142 MB"), ("small", "466 MB"), ("medium", "1.5 GB"), ("large", "2.9 GB")):
+            self.model.addItem(f"{name} (~{size})", name)
+        self.model.setCurrentIndex(max(0, self.model.findData(self.config.get("model", "small"))))
+        local_layout.addRow(self.t["model"], self.model)
+        self.prepare_model_button = QPushButton(self.t["prepare_model"])
+        self.prepare_model_button.clicked.connect(self.prepare_local_model)
+        local_layout.addRow("", self.prepare_model_button)
+        cloud = QWidget()
+        cloud_layout = QFormLayout(cloud)
+        cloud_note = QLabel(self.ot["cloud_explainer"])
+        cloud_note.setWordWrap(True)
+        cloud_layout.addRow(cloud_note)
+        link = QLabel(f'<a href="https://console.groq.com/keys">{self.ot["get_groq_key"]}</a>')
+        link.setOpenExternalLinks(True)
+        cloud_layout.addRow(link)
+        self.groq_key = QLineEdit()
+        self.groq_key.setEchoMode(QLineEdit.Password)
+        self.groq_key.setPlaceholderText(self.t["keychain_saved"] if self._has_groq_key() else "gsk_…")
+        cloud_layout.addRow(self.t["groq_key"], self.groq_key)
+        self.test_key_button = QPushButton(self.t["test_key"])
+        self.test_key_button.clicked.connect(self.test_groq_key)
+        cloud_layout.addRow("", self.test_key_button)
+        self.local_fallback = QCheckBox(self.t["fallback"])
+        self.local_fallback.setChecked(self.config.get("allow_local_fallback", False))
+        cloud_layout.addRow("", self.local_fallback)
+        self.backend_pages.addWidget(local)
+        self.backend_pages.addWidget(cloud)
+        layout.addWidget(self.backend_pages)
+        layout.addLayout(self._onboarding_navigation(lambda: self.set_onboarding_step(0), lambda: self.set_onboarding_step(2)))
+        self.pages.addWidget(page)
+
+    def _onboarding_audio_page(self) -> None:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        title = QLabel(self.ot["audio_ready"])
+        title.setObjectName("statusLabel")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        hint = QLabel(self.ot["audio_hint"])
+        hint.setObjectName("detailLabel")
+        hint.setAlignment(Qt.AlignCenter)
+        layout.addWidget(hint)
+        form = QFormLayout()
+        self.mic = QComboBox()
+        self.mic.addItem(self.t["default_mic"], None)
+        for name, index in input_devices():
+            self.mic.addItem(name, index)
+        self.mic.setCurrentIndex(next((i for i in range(self.mic.count()) if self.mic.itemData(i) == self.config.get("device_index")), 0))
+        form.addRow(self.t["microphone"], self.mic)
+        test_mic = QPushButton(self.t["test_mic"])
+        test_mic.clicked.connect(self.test_microphone)
+        form.addRow("", test_mic)
+        self.hotkey = QLineEdit(self.config.get("hotkey", "win+alt"))
+        form.addRow(self.t["hotkey"], self.hotkey)
+        self.hotkey_mode = QComboBox()
+        self.hotkey_mode.addItem(self.t["toggle"], "toggle")
+        self.hotkey_mode.addItem(self.t["hold"], "hold")
+        self.hotkey_mode.setCurrentIndex(1 if self.config.get("hotkey_mode") == "hold" else 0)
+        form.addRow(self.t["hotkey_mode"], self.hotkey_mode)
+        layout.addLayout(form)
+        # Preserve advanced settings on first run; these controls remain available in Settings.
+        self.rec_lang = QComboBox()
+        self.rec_lang.addItems(["Auto", "Русский (ru)", "English (en)"])
+        self.rec_lang.setCurrentIndex({None: 0, "ru": 1, "en": 2}.get(self.config.get("language"), 0))
+        self.ui_lang = QComboBox()
+        self.ui_lang.addItem("Русский", "ru")
+        self.ui_lang.addItem("English", "en")
+        self.ui_lang.setCurrentIndex(0 if self.lang == "ru" else 1)
+        hud = self.config.get("hud", {})
+        self.hud_enabled = QCheckBox()
+        self.hud_enabled.setChecked(hud.get("enabled", True))
+        self.contrast = QCheckBox()
+        self.contrast.setChecked(hud.get("high_contrast", False))
+        self.motion = QCheckBox()
+        self.motion.setChecked(hud.get("reduce_motion", False))
+        self.position = QComboBox()
+        self.position.addItem("", "bottom_right")
+        self.history_enabled = QCheckBox()
+        self.history_enabled.setChecked(self.config.get("history", {}).get("enabled", False))
+        self.retention = QComboBox()
+        self.retention.addItem("", self.config.get("history", {}).get("retention_days", 30))
+        layout.addLayout(self._onboarding_navigation(lambda: self.set_onboarding_step(1), self.save, self.ot["finish"]))
+        self.pages.addWidget(page)
+
+    def _onboarding_navigation(self, back, forward, label: str | None = None) -> QHBoxLayout:
+        row = QHBoxLayout()
+        back_button = QPushButton(self.ot["back"])
+        back_button.clicked.connect(back)
+        forward_button = QPushButton(label or self.ot["continue"])
+        forward_button.setObjectName("primaryAction")
+        forward_button.clicked.connect(forward)
+        row.addWidget(back_button)
+        row.addStretch()
+        row.addWidget(forward_button)
+        return row
+
+    def _select_onboarding_profile(self, profile: str) -> None:
+        self.profile.setCurrentIndex(0 if profile == "privacy" else 1)
+        self.privacy_card.setChecked(profile == "privacy")
+        self.speed_card.setChecked(profile == "speed")
+
+    def set_onboarding_step(self, step: int) -> None:
+        self.pages.setCurrentIndex(step)
+        self.progress.setText(self.ot["step"].format(current=step + 1))
+        if step == 1:
+            self.backend_pages.setCurrentIndex(1 if self.profile.currentData() == "speed" else 0)
 
     def test_microphone(self) -> None:
         try:
@@ -590,6 +941,8 @@ class WhisperTrayUi:
         if not brand.isNull():
             logo.setPixmap(brand.scaled(58, 58, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             layout.addWidget(logo)
+        self.recording_pulse = RecordingPulse()
+        layout.addWidget(self.recording_pulse, alignment=Qt.AlignHCenter)
         self.status_label = QLabel()
         self.status_label.setObjectName("statusLabel")
         self.status_label.setAlignment(Qt.AlignCenter)
@@ -661,6 +1014,10 @@ class WhisperTrayUi:
     def render_status(self, message: str | None = None) -> None:
         text = message or self.t[self.status.value]
         self.status_label.setText(text)
+        self.recording_pulse.set_recording(
+            self.status == ViewState.RECORDING,
+            self.state.config.get("hud", {}).get("reduce_motion", False),
+        )
         profile = self.t["privacy"] if self.state.config.get("profile") == "privacy" else self.t["speed"]
         self.detail_label.setText(f"{self.t['profile']}: {profile} · {self.state.config.get('hotkey', 'win+alt')}")
         busy = self.status == ViewState.PROCESSING

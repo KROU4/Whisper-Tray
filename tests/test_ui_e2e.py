@@ -135,3 +135,52 @@ def test_settings_save_updates_privacy_profile_without_secret(view, qt_app, monk
     assert view.state.config["profile"] == "privacy"
     assert view.state.config["transcription_backend"] == "local"
     assert "groq_api_key" not in view.state.config
+
+
+def test_onboarding_has_three_profile_gated_steps(view, qt_app):
+    dialog = SettingsDialog(view, onboarding=True)
+    dialog.show()
+    qt_app.processEvents()
+
+    assert dialog.pages.count() == 3
+    assert dialog.pages.currentIndex() == 0
+    assert dialog.backend_pages.currentIndex() == 0
+    assert dialog.privacy_card.isChecked()
+
+    dialog.speed_card.click()
+    dialog.set_onboarding_step(1)
+    qt_app.processEvents()
+
+    assert dialog.profile.currentData() == "speed"
+    assert dialog.backend_pages.currentIndex() == 1
+    assert dialog.groq_key.isVisible()
+    assert not dialog.model.isVisible()
+    dialog.close()
+
+
+def test_settings_hides_backend_controls_for_the_other_profile(view, qt_app):
+    dialog = SettingsDialog(view)
+    dialog.show()
+    dialog.profile.setCurrentIndex(dialog.profile.findData("speed"))
+    qt_app.processEvents()
+
+    assert dialog.groq_key.isVisible()
+    assert not dialog.model.isVisible()
+
+    dialog.profile.setCurrentIndex(dialog.profile.findData("privacy"))
+    qt_app.processEvents()
+    assert not dialog.groq_key.isVisible()
+    assert dialog.model.isVisible()
+    dialog.close()
+
+
+def test_recording_pulse_respects_reduce_motion(view, qt_app):
+    view.set_state(ViewState.RECORDING)
+    qt_app.processEvents()
+    assert view.recording_pulse.timer.isActive()
+    assert view.hud.pulse.timer.isActive()
+
+    view.state.config["hud"]["reduce_motion"] = True
+    view.render_status()
+    assert not view.recording_pulse.timer.isActive()
+    assert not view.hud.pulse.timer.isActive()

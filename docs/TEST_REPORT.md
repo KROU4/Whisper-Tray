@@ -1,58 +1,59 @@
-# Release test report
+# Отчет о проверке релиза
 
-Date: 2026-08-08  
-Host: Windows 11, Python 3.12, CPU fallback for local Whisper
+Дата: 2026-08-08
+Хост: Windows 11, Python 3.12, локальный Whisper с CPU fallback
 
-## Automated checks
+## Автоматические проверки в записанном прогоне
 
-- 33 tests passed.
-- Ruff passed.
-- Python bytecode compilation passed.
-- Dependency consistency check passed.
-- Current-tree secret scan passed.
+- 39 тестов прошли.
+- Ruff прошел.
+- Компиляция Python-байткода прошла.
+- Проверка согласованности зависимостей прошла.
+- Проверка текущего дерева на секреты прошла.
 
-## Real audio transcription
+## Распознавание реального аудио
 
-Windows Speech Synthesis generated a 16 kHz WAV containing:
+Windows Speech Synthesis создал WAV 16 кГц с фразой:
 
 > Привет. Это реальная проверка распознавания речи в приложении Whisper Tray.
 
-The real `faster-whisper` `tiny` model processed the WAV locally on CPU. It
-returned:
+Локальная модель `faster-whisper` `tiny` обработала WAV на CPU и вернула:
 
 > Привет. Это реальная проверка распознавания речи в приложении У и спертрей.
 
-This proves the real WAV, decoder, local model and normalization path. It also
-shows why the smallest model is not the recommended accuracy baseline.
+Проверка подтверждает путь с настоящими WAV, декодером, локальной моделью и
+нормализацией текста. Она также показывает, что самая маленькая модель не
+является рекомендуемой базой по точности.
 
 ## Windows MSI
 
-- Native MSI build completed.
-- Silent installation returned exit code 0.
-- Start menu shortcut was created.
-- Desktop shortcut was created.
-- Installed application stayed running after launch.
-- First-run onboarding rendered from the installed bundle.
-- Silent uninstall returned exit code 0.
-- Both installer-owned shortcuts were removed.
+- Нативная сборка MSI завершилась.
+- Тихая установка вернула код 0.
+- Созданы ярлыки меню «Пуск» и рабочего стола.
+- Установленное приложение продолжило работать после запуска.
+- Первый запуск отрисовался из установленного пакета.
+- Установленный EXE сообщает версию 1.1.0.
+- Реальное глобальное сочетание `Ctrl+Space` перевело установленное приложение
+  в состояние записи; повторное нажатие остановило запись.
+- Тихое удаление вернуло код 0 и удалило оба ярлыка установщика.
 
-Final Windows artifact at the time of this report:
+Артефакт на дату отчета:
 
-- File: `dist/WhisperTray-1.0.0.msi`
-- Size: 135.8 MiB
-- SHA-256: `610E779A3022C1106925ECDDC8E3D07DCFA7F5E1448248C94C88287AD9A6C9D8`
+- Файл: `dist/WhisperTray-1.1.0.msi`
+- Размер: 135,8 MiB
+- SHA-256: `9008E45592756E7F9D409596A814D516C3A8943F01ADAA7D5224844FBAEB5F68`
 
-The checksum must be refreshed after any subsequent rebuild.
+После каждой новой сборки контрольную сумму нужно обновлять.
 
-## Visual evidence
+## Визуальные подтверждения
 
-`artifacts/screenshots` contains native Windows captures for onboarding,
-settings, diagnostics, tray menu, all five main states, and all HUD terminal
-states. Screenshot review cannot prove screen-reader behavior or every DPI and
-multi-monitor combination.
+`artifacts/screenshots` содержит нативные снимки Windows для первого запуска,
+настроек, диагностики, меню трея, пяти состояний главного окна и состояний
+оверлея. Скриншоты не подтверждают работу экранного диктора и все сочетания
+DPI или нескольких мониторов.
 
-## Cross-platform limits
+## Кросс-платформенные ограничения
 
-macOS and Linux packages are configured for target-host CI builds. They were
-not executed on this Windows host. Public macOS distribution still requires
-Apple signing and notarization. Linux global shortcuts currently require X11.
+Пакеты macOS и Linux настроены для сборки в CI на целевой ОС, но не выполнялись
+на хосте этого отчета. Для публичного распространения macOS по-прежнему нужны
+подпись Apple и нотарификация. Глобальные сочетания клавиш в Linux требуют X11.
