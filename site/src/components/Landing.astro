@@ -1,0 +1,272 @@
+---
+import { Icon } from "astro-icon/components";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+interface Props {
+  lang: "ru" | "en";
+}
+
+const { lang } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const asset = (path: string) => `${base}/${path}`;
+const releaseUrl = "https://github.com/KROU4/Whisper-Tray/releases/latest";
+const repoUrl = "https://github.com/KROU4/Whisper-Tray";
+
+const copy = lang === "ru" ? {
+  title: "WhisperTray — голосовая диктовка для Windows, macOS и Linux",
+  description: "WhisperTray превращает речь в текст и вставляет её в любое приложение. Локальный приватный режим или быстрое облачное распознавание.",
+  navProfiles: "Режимы",
+  navHow: "Как работает",
+  navFaq: "Вопросы",
+  language: "EN",
+  languageHref: `${base}/en/`,
+  heroTop: "Говорите.",
+  heroAccent: "WhisperTray",
+  heroBottom: "напечатает.",
+  heroText: "Быстрая диктовка в любом приложении",
+  download: "Скачать для Windows",
+  github: "Смотреть на GitHub",
+  facts: ["Windows 10/11", "Локальное распознавание", "Без подписки"],
+  profilesTitle: "Два режима. Один голосовой помощник.",
+  profilesLead: "Вы сами решаете, что важнее прямо сейчас: полная автономность или максимальная скорость.",
+  privacy: "Приватность",
+  privacyText: "Весь процесс происходит локально на вашем компьютере. После загрузки модели интернет не нужен, а аудио никуда не отправляется.",
+  speed: "Скорость",
+  speedText: "Распознавание через Groq для быстрого старта и минимальной задержки. Аудио отправляется в облако только после явного выбора этого режима.",
+  howEyebrow: "Один хоткей",
+  howTitle: "Меньше переключений. Больше готового текста.",
+  howLead: "WhisperTray работает поверх других приложений: вы не покидаете документ, чат или форму, в которой уже находитесь.",
+  steps: [
+    ["Нажмите", "Используйте Ctrl + Space или запишите своё сочетание в настройках."],
+    ["Говорите", "Небольшой индикатор показывает, что запись идёт."],
+    ["Продолжайте работать", "Распознанный текст вставится туда, где находится курсор."],
+  ],
+  features: [
+    ["mdi:monitor-cellphone", "В любой программе", "Почта, браузер, мессенджер, редактор или CRM — достаточно активного поля ввода."],
+    ["mdi:shield-lock-outline", "Без скрытой смены приватности", "Локальный режим никогда не отправляет аудио в облако. Переключение всегда видно."],
+    ["mdi:keyboard-outline", "Горячая клавиша без синтаксиса", "Нажмите «Изменить», затем новое сочетание — WhisperTray сохранит его сам."],
+    ["mdi:translate", "Русский и English", "Интерфейс и документация доступны на двух языках, язык распознавания настраивается отдельно."],
+  ],
+  downloadEyebrow: "Открытый исходный код",
+  downloadTitle: "Скачайте WhisperTray и начните диктовать.",
+  downloadText: "Установочные пакеты для Windows, macOS и Linux собираются автоматически в GitHub Releases.",
+  allDownloads: "Открыть все загрузки",
+  source: "Исходный код",
+  faqTitle: "Коротко о важном",
+  faqs: [
+    ["Нужен ли интернет?", "Для локального режима — только при первой загрузке модели. Облачному режиму Groq интернет нужен всегда."],
+    ["Где хранится ключ Groq?", "Не в config.json. На Windows ключ сохраняется в системном менеджере учётных данных."],
+    ["Сохраняется ли история диктовок?", "По умолчанию нет. Локальную историю можно включить отдельно и выбрать срок хранения."],
+    ["Какие системы поддерживаются?", "Целевые пакеты собираются для Windows, macOS и Linux. На Wayland глобальные горячие клавиши зависят от ограничений окружения."],
+  ],
+  footerText: "Диктовка в любой программе.",
+  footerDocs: "Документация",
+} : {
+  title: "WhisperTray — voice dictation for Windows, macOS and Linux",
+  description: "WhisperTray turns speech into text and inserts it into any application. Choose private local recognition or fast cloud transcription.",
+  navProfiles: "Modes",
+  navHow: "How it works",
+  navFaq: "FAQ",
+  language: "RU",
+  languageHref: `${base}/`,
+  heroTop: "Speak.",
+  heroAccent: "WhisperTray",
+  heroBottom: "will type.",
+  heroText: "Fast dictation in any application",
+  download: "Download for Windows",
+  github: "View on GitHub",
+  facts: ["Windows 10/11", "Local recognition", "No subscription"],
+  profilesTitle: "Two modes. One voice assistant.",
+  profilesLead: "Choose what matters right now: complete autonomy or maximum speed.",
+  privacy: "Privacy",
+  privacyText: "Everything runs locally on your computer. Once the model is downloaded, no internet is required and audio never leaves the device.",
+  speed: "Speed",
+  speedText: "Groq transcription provides a fast start and low latency. Audio is sent to the cloud only after you explicitly choose this mode.",
+  howEyebrow: "One hotkey",
+  howTitle: "Fewer context switches. More finished text.",
+  howLead: "WhisperTray works on top of your other apps, so you stay in the document, chat, or form you are already using.",
+  steps: [
+    ["Press", "Use Ctrl + Space or capture your own shortcut in Settings."],
+    ["Speak", "A compact status indicator confirms that recording is active."],
+    ["Keep working", "The transcription appears wherever your cursor is focused."],
+  ],
+  features: [
+    ["mdi:monitor-cellphone", "Works in any app", "Email, browser, messenger, editor, or CRM — all you need is an active text field."],
+    ["mdi:shield-lock-outline", "Privacy never changes silently", "Local mode never uploads audio. Every mode switch stays visible."],
+    ["mdi:keyboard-outline", "No shortcut syntax", "Select Change, press a new combination, and WhisperTray stores it for you."],
+    ["mdi:translate", "Russian and English", "The interface and documentation are bilingual, while recognition language is configured separately."],
+  ],
+  downloadEyebrow: "Open source",
+  downloadTitle: "Download WhisperTray and start dictating.",
+  downloadText: "Installers for Windows, macOS, and Linux are built automatically in GitHub Releases.",
+  allDownloads: "View all downloads",
+  source: "Source code",
+  faqTitle: "The essentials",
+  faqs: [
+    ["Does it need internet?", "Local mode only needs a connection for the first model download. Groq cloud mode always requires internet."],
+    ["Where is the Groq key stored?", "Not in config.json. On Windows it is stored in the system credential manager."],
+    ["Does WhisperTray save dictation history?", "Not by default. Local history is optional and includes a configurable retention period."],
+    ["Which systems are supported?", "Release packages target Windows, macOS, and Linux. On Wayland, global shortcuts depend on desktop environment restrictions."],
+  ],
+  footerText: "Dictation in any application.",
+  footerDocs: "Documentation",
+};
+---
+
+<BaseLayout lang={lang} title={copy.title} description={copy.description} canonicalPath={lang === "ru" ? "/" : "/en/"}>
+  <a class="skip-link" href="#main">{lang === "ru" ? "К содержанию" : "Skip to content"}</a>
+  <header class="site-header">
+    <a class="brand" href={lang === "ru" ? `${base}/` : `${base}/en/`} aria-label="WhisperTray">
+      <img src={asset("logo.png")} alt="" width="38" height="38" />
+      <span>WhisperTray</span>
+    </a>
+    <nav aria-label={lang === "ru" ? "Основная навигация" : "Main navigation"}>
+      <a href="#profiles">{copy.navProfiles}</a>
+      <a href="#how">{copy.navHow}</a>
+      <a href="#faq">{copy.navFaq}</a>
+    </nav>
+    <div class="header-actions">
+      <a class="language-link" href={copy.languageHref} lang={lang === "ru" ? "en" : "ru"}>{copy.language}</a>
+      <a class="button button-small" href={releaseUrl}>{copy.download}</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <img class="hero-atmosphere" src={asset("hero-wave.png")} alt="" width="2048" height="1024" fetchpriority="high" />
+      <div class="hero-grid shell">
+        <div class="hero-copy">
+          <p class="eyebrow">Windows · macOS · Linux</p>
+          <h1 id="hero-title">
+            <span>{copy.heroTop}</span>
+            <strong>{copy.heroAccent}</strong>
+            <span>{copy.heroBottom}</span>
+          </h1>
+          <p class="hero-lead">{copy.heroText}</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href={releaseUrl}>
+              <Icon name="mdi:microsoft-windows" aria-hidden="true" />
+              {copy.download}
+            </a>
+            <a class="button button-secondary" href={repoUrl}>
+              <Icon name="mdi:github" aria-hidden="true" />
+              {copy.github}
+            </a>
+          </div>
+          <ul class="hero-facts" aria-label={lang === "ru" ? "Основные преимущества" : "Key benefits"}>
+            {copy.facts.map((fact) => <li>{fact}</li>)}
+          </ul>
+        </div>
+        <div class="product-shot">
+          <img src={asset("app-recording.png")} alt={lang === "ru" ? "Окно WhisperTray во время записи" : "WhisperTray recording window"} width="439" height="473" />
+        </div>
+      </div>
+    </section>
+
+    <section class="profiles section shell" id="profiles" aria-labelledby="profiles-title">
+      <div class="section-heading centered">
+        <p class="eyebrow">{lang === "ru" ? "Выбор остаётся за вами" : "You stay in control"}</p>
+        <h2 id="profiles-title">{copy.profilesTitle}</h2>
+        <p>{copy.profilesLead}</p>
+      </div>
+      <div class="profile-grid">
+        <article>
+          <Icon name="mdi:shield-lock-outline" aria-hidden="true" />
+          <div>
+            <h3>{copy.privacy}</h3>
+            <p>{copy.privacyText}</p>
+          </div>
+        </article>
+        <article>
+          <Icon name="mdi:lightning-bolt-outline" aria-hidden="true" />
+          <div>
+            <h3>{copy.speed}</h3>
+            <p>{copy.speedText}</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="how section" id="how" aria-labelledby="how-title">
+      <div class="shell how-grid">
+        <div class="how-copy">
+          <p class="eyebrow">{copy.howEyebrow}</p>
+          <h2 id="how-title">{copy.howTitle}</h2>
+          <p>{copy.howLead}</p>
+          <ol class="steps">
+            {copy.steps.map(([title, text], index) => (
+              <li>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div><h3>{title}</h3><p>{text}</p></div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div class="idle-shot">
+          <img src={asset("app-idle.png")} alt={lang === "ru" ? "Главное окно WhisperTray, готовое к диктовке" : "WhisperTray ready for dictation"} width="439" height="473" loading="lazy" />
+        </div>
+      </div>
+    </section>
+
+    <section class="features section shell" aria-label={lang === "ru" ? "Возможности" : "Features"}>
+      <div class="feature-grid">
+        {copy.features.map(([icon, title, text]) => (
+          <article>
+            <Icon name={icon} aria-hidden="true" />
+            <h3>{title}</h3>
+            <p>{text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="download section shell" id="download" aria-labelledby="download-title">
+      <div>
+        <p class="eyebrow">{copy.downloadEyebrow}</p>
+        <h2 id="download-title">{copy.downloadTitle}</h2>
+        <p>{copy.downloadText}</p>
+      </div>
+      <div class="download-actions">
+        <a class="button button-primary" href={releaseUrl}>
+          <Icon name="mdi:download" aria-hidden="true" />
+          {copy.allDownloads}
+        </a>
+        <a class="button button-secondary" href={repoUrl}>
+          <Icon name="mdi:github" aria-hidden="true" />
+          {copy.source}
+        </a>
+      </div>
+    </section>
+
+    <section class="faq section shell" id="faq" aria-labelledby="faq-title">
+      <div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="faq-title">{copy.faqTitle}</h2></div>
+      <div class="faq-list">
+        {copy.faqs.map(([question, answer], index) => (
+          <details open={index === 0}>
+            <summary>{question}<Icon name="mdi:plus" aria-hidden="true" /></summary>
+            <p>{answer}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer shell">
+    <div class="brand footer-brand"><img src={asset("logo.png")} alt="" width="32" height="32" /><span>WhisperTray</span></div>
+    <p>{copy.footerText}</p>
+    <div>
+      <a href={lang === "ru" ? `${base}/en/` : `${base}/`}>{copy.language}</a>
+      <a href={lang === "ru" ? `${repoUrl}#readme` : `${repoUrl}/blob/main/README.en.md`}>{copy.footerDocs}</a>
+      <a href={repoUrl}>GitHub</a>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll("details").forEach((detail) => {
+      detail.addEventListener("toggle", () => {
+        const icon = detail.querySelector("svg");
+        if (icon) icon.style.transform = detail.open ? "rotate(45deg)" : "rotate(0deg)";
+      });
+    });
+  </script>
+</BaseLayout>

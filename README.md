@@ -1,6 +1,6 @@
 # WhisperTray
 
-[Русский](README.md) | [English](README.en.md)
+[Сайт](https://krou4.github.io/Whisper-Tray/) | [Русский](README.md) | [English](README.en.md)
 
 <p align="center">
   <img src="assets/whispertray-logo.png" width="160" alt="Логотип WhisperTray">
@@ -11,7 +11,7 @@ WhisperTray — настольное приложение для диктовк�
 речь и вставит результат в активное окно. Оно работает локально либо с Groq,
 когда пользователь явно выбирает облачный режим и указывает свой API-ключ.
 
-> Актуальный релиз: [WhisperTray 1.1.2](https://github.com/KROU4/Whisper-Tray/releases/tag/v1.1.2).
+> Актуальный релиз: [WhisperTray 1.1.3](https://github.com/KROU4/Whisper-Tray/releases/latest).
 > Нативные установщики собираются автоматически для Windows, macOS и Linux.
 
 ## Возможности

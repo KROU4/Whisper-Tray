@@ -35,3 +35,8 @@ dist-installer/
 .idea/
 /demo
 /artifacts/
+
+# Static marketing site
+/site/node_modules/
+/site/dist/
+/site/.astro/
