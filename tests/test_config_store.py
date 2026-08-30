@@ -45,6 +45,7 @@ def test_new_config_defaults_to_private_local_profile(tmp_path):
     assert config["profile"] == "privacy"
     assert config["transcription_backend"] == "local"
     assert config["onboarding_complete"] is False
+    assert config["start_in_tray"] is False
     assert json.loads(target.read_text(encoding="utf-8"))["schema_version"] == 1
 
 
@@ -80,6 +81,12 @@ def test_explicit_local_fallback_consent_is_persisted(tmp_path):
     store = ConfigStore(tmp_path / "config.json", tmp_path / "legacy.json", FakeCredentials())
     store.save({"profile": "speed", "allow_local_fallback": True})
     assert store.load()["allow_local_fallback"] is True
+
+
+def test_start_in_tray_preference_is_persisted(tmp_path):
+    store = ConfigStore(tmp_path / "config.json", tmp_path / "legacy.json", FakeCredentials())
+    store.save({"profile": "privacy", "start_in_tray": True})
+    assert store.load()["start_in_tray"] is True
 
 
 def test_save_is_atomic_and_never_serializes_secret(tmp_path):

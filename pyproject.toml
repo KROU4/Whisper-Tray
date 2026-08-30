@@ -1,6 +1,6 @@
 [project]
 name = "whispertray"
-version = "1.1.1"
+version = "1.1.2"
 description = "Privacy-aware desktop dictation for Windows, macOS, and Linux."
 requires-python = ">=3.10"
 authors = [{ name = "KROU4" }]
@@ -8,7 +8,7 @@ authors = [{ name = "KROU4" }]
 [tool.briefcase]
 project_name = "WhisperTray"
 bundle = "com.whispertray"
-version = "1.1.1"
+version = "1.1.2"
 url = "https://github.com/KROU4/Whisper-Tray"
 license = { file = "LICENSE" }
 author = "KROU4"

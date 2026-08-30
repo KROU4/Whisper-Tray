@@ -11,7 +11,7 @@ global shortcut, speak, and the app transcribes your speech and inserts the
 result into the active window. It can run locally or use Groq when you
 explicitly choose the cloud profile and provide your own API key.
 
-> Current release: [WhisperTray 1.1.1](https://github.com/KROU4/Whisper-Tray/releases/tag/v1.1.1).
+> Current release: [WhisperTray 1.1.2](https://github.com/KROU4/Whisper-Tray/releases/tag/v1.1.2).
 > Native installers are built automatically for Windows, macOS, and Linux.
 
 ## Features
@@ -21,7 +21,7 @@ explicitly choose the cloud profile and provide your own API key.
 - Groq transcription in the Speed profile with your API key.
 - Recording, processing, result, and error status in the window, overlay, and
   tray.
-- Launch-at-login control in Settings.
+- Independent launch-at-login and start-in-tray controls in Settings.
 - Transcribes individual audio and video files.
 - Optional local transcript history.
 
@@ -44,7 +44,8 @@ Download the installer for your OS from [GitHub Releases](https://github.com/KRO
 - macOS: `.dmg` or `.pkg`
 - Linux: the native package built for Ubuntu by the release workflow
 
-On first run, choose a profile, microphone, language, and shortcut. Then:
+The first run uses three short steps: choose local or cloud processing, prepare
+that transcription method, and configure the microphone and hotkey. Then:
 
 1. In Privacy, prepare or download a local model in Settings.
 2. In Speed, enter and test a Groq key. It is saved only after it can be

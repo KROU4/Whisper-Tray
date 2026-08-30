@@ -18,6 +18,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "profile": "privacy",
     "ui_language": "auto",
     "onboarding_complete": False,
+    "start_in_tray": False,
     "language": None,
     "device_index": None,
     "hotkey": "win+alt",
@@ -121,5 +122,6 @@ class ConfigStore:
         }
         config["transcription_backend"] = "local" if config["profile"] == "privacy" else "groq"
         config["allow_local_fallback"] = bool(config.get("allow_local_fallback", False))
+        config["start_in_tray"] = bool(config.get("start_in_tray", False))
         config["schema_version"] = SCHEMA_VERSION
         return config, secret

@@ -16,7 +16,7 @@ from enum import Enum
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication, QLocale, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QCursor, QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QCursor, QGuiApplication, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -25,12 +25,14 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QStackedWidget,
     QSystemTrayIcon,
@@ -53,6 +55,7 @@ QLabel#statusLabel {
     font-weight: 700;
 }
 QLabel#detailLabel { color: #c8c2b8; }
+QLabel#hintLabel { color: #aaa49a; font-size: 12px; }
 QPlainTextEdit, QLineEdit, QComboBox {
     background: #25282e;
     border: 1px solid #3a3e46;
@@ -79,6 +82,29 @@ QPushButton#primaryAction {
 }
 QPushButton#primaryAction:hover { background: #ff8b70; }
 QCheckBox { spacing: 8px; }
+QGroupBox {
+    background: #202329;
+    border: 1px solid #343840;
+    border-radius: 10px;
+    margin-top: 12px;
+    padding: 14px 12px 12px 12px;
+    font-weight: 700;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 6px;
+    color: #fff8eb;
+}
+QProgressBar {
+    background: #25282e;
+    border: none;
+    border-radius: 4px;
+    color: #c8c2b8;
+    height: 8px;
+    text-align: center;
+}
+QProgressBar::chunk { background: #ff765d; border-radius: 4px; }
 QLabel#sectionTitle {
     color: #fff8eb;
     font-size: 16px;
@@ -156,9 +182,15 @@ STRINGS = {
         "general": "Основное",
         "data_system": "Данные и система",
         "autostart": "Запускать вместе с системой",
+        "autostart_hint": "WhisperTray будет автоматически запускаться после входа в систему.",
+        "start_in_tray": "Запускать сразу в трее",
+        "start_in_tray_hint": "Главное окно не откроется, но диктовка и горячая клавиша будут готовы.",
+        "startup": "Запуск приложения",
         "autostart_error": "Не удалось изменить автозапуск.",
         "diagnostics_info": "Безопасная техническая информация без ключей, аудио и текста диктовки.",
         "diagnostics_exported": "Диагностика экспортирована без секретов, аудио и текста диктовки.",
+        "show_diagnostics": "Показать техническую информацию",
+        "hide_diagnostics": "Скрыть техническую информацию",
         "hud": "Показывать индикатор",
         "contrast": "Высокий контраст",
         "motion": "Уменьшить анимацию",
@@ -166,9 +198,11 @@ STRINGS = {
         "bottom_right": "Справа снизу",
         "bottom_left": "Слева снизу",
         "history": "Сохранять локальную историю",
+        "history_section": "Локальная история",
         "retention": "Хранить историю",
         "days": "дней",
         "last_result": "Последний результат",
+        "last_result_hint": "Здесь появится последняя расшифровка",
         "onboarding": "Первый запуск",
         "welcome": "Выберите, как WhisperTray будет обрабатывать аудио.",
         "cloud_note": "В режиме «Скорость» аудио отправляется в Groq. Нужен ваш API-ключ.",
@@ -187,6 +221,15 @@ STRINGS = {
         "already_processing": "Уже обрабатываю запись",
         "file": "Транскрибировать файл…",
         "closed": "Приложение продолжает работать в системном трее.",
+        "hotkey_empty": "Укажите горячую клавишу.",
+        "hotkey_invalid": "Не удалось распознать это сочетание клавиш. Например: Ctrl+Space.",
+        "groq_required": "Для профиля «Скорость» нужен ключ Groq API.",
+        "mic_available": "Микрофон доступен и готов к записи.",
+        "mic_failed": "Не удалось использовать микрофон: {error}",
+        "key_enter": "Вставьте ключ Groq API, затем нажмите «Проверить ключ».",
+        "key_testing": "Проверяю…",
+        "key_valid": "Ключ Groq работает.",
+        "key_failed": "Не удалось проверить ключ Groq: {error}",
     },
     "en": {
         "title": "WhisperTray",
@@ -215,9 +258,15 @@ STRINGS = {
         "general": "General",
         "data_system": "Data & system",
         "autostart": "Launch with the system",
+        "autostart_hint": "WhisperTray will start automatically after you sign in.",
+        "start_in_tray": "Start directly in the tray",
+        "start_in_tray_hint": "The main window stays closed while dictation and the hotkey remain ready.",
+        "startup": "Application startup",
         "autostart_error": "Could not change launch-at-login settings.",
         "diagnostics_info": "Safe technical information without keys, audio, or dictated text.",
         "diagnostics_exported": "Diagnostics exported without secrets, audio, or dictated text.",
+        "show_diagnostics": "Show technical information",
+        "hide_diagnostics": "Hide technical information",
         "hud": "Show status overlay",
         "contrast": "High contrast",
         "motion": "Reduce motion",
@@ -225,9 +274,11 @@ STRINGS = {
         "bottom_right": "Bottom right",
         "bottom_left": "Bottom left",
         "history": "Keep local history",
+        "history_section": "Local history",
         "retention": "Keep history",
         "days": "days",
         "last_result": "Last result",
+        "last_result_hint": "Your latest transcription will appear here",
         "onboarding": "First launch",
         "welcome": "Choose how WhisperTray processes audio.",
         "cloud_note": "Speed mode sends audio to Groq. Your own API key is required.",
@@ -246,41 +297,60 @@ STRINGS = {
         "already_processing": "Already processing a recording",
         "file": "Transcribe file…",
         "closed": "WhisperTray is still running in the system tray.",
+        "hotkey_empty": "Enter a hotkey.",
+        "hotkey_invalid": "This shortcut could not be recognized. Example: Ctrl+Space.",
+        "groq_required": "The Speed profile requires a Groq API key.",
+        "mic_available": "The microphone is available and ready.",
+        "mic_failed": "The microphone could not be used: {error}",
+        "key_enter": "Paste a Groq API key, then select Test key.",
+        "key_testing": "Testing…",
+        "key_valid": "The Groq key works.",
+        "key_failed": "The Groq key could not be verified: {error}",
     },
 }
 
 ONBOARDING_STRINGS = {
     "en": {
         "heading": "Welcome to WhisperTray",
-        "subtitle": "Set up dictation in a couple of minutes",
-        "choose_profile": "Choose your audio processing profile",
-        "privacy_card": "Only on this computer",
-        "speed_card": "Processed through Groq",
+        "subtitle": "Three quick steps, then you can start dictating",
+        "choose_profile": "Where should speech be recognized?",
+        "choose_profile_hint": "This choice determines whether audio can leave your computer.",
+        "privacy_card": "Audio never leaves this computer\nWorks offline after the model is downloaded",
+        "speed_card": "Fast cloud transcription through Groq\nRequires internet and your personal API key",
         "continue": "Continue",
         "back": "Back",
-        "profile_setup": "Set up your profile",
-        "local_explainer": "Audio stays on this device. Choose a local Whisper model when you are ready.",
-        "cloud_explainer": "Audio is sent to Groq for transcription. It is never kept by WhisperTray.",
+        "profile_setup": "Prepare transcription",
+        "local_explainer": "Audio stays on this device. The Small model is recommended for most computers.",
+        "local_model_hint": "You can download the model now or on the first transcription.",
+        "cloud_explainer": "Groq receives audio only for transcription. WhisperTray does not keep a copy.",
+        "cloud_key_hint": "Create a free key in Groq Console, paste it here, then test the connection.",
         "get_groq_key": "Get a Groq API key",
-        "audio_ready": "Check your microphone and shortcut",
-        "audio_hint": "You can change these later in Settings.",
+        "audio_ready": "Choose how you will start dictation",
+        "audio_hint": "Select a microphone and a shortcut. You can change both later.",
+        "hotkey_hint": "Example: Ctrl+Space. Toggle mode starts and stops recording with two presses.",
+        "audio_controls": "Microphone and shortcut",
         "finish": "Finish setup",
         "step": "Step {current} of 3",
     },
     "ru": {
         "heading": "Добро пожаловать в WhisperTray",
-        "subtitle": "Настроим диктовку за пару минут",
-        "choose_profile": "Выберите профиль обработки аудио",
-        "privacy_card": "Только на этом компьютере",
-        "speed_card": "Обработка через Groq",
+        "subtitle": "Три коротких шага — и можно диктовать",
+        "choose_profile": "Где распознавать вашу речь?",
+        "choose_profile_hint": "От этого зависит, сможет ли аудио покидать ваш компьютер.",
+        "privacy_card": "Аудио не покидает компьютер\nРаботает без интернета после загрузки модели",
+        "speed_card": "Быстрое распознавание через Groq\nНужны интернет и ваш личный API-ключ",
         "continue": "Продолжить",
         "back": "Назад",
-        "profile_setup": "Настройте профиль",
-        "local_explainer": "Аудио остаётся на этом устройстве. Выберите локальную модель Whisper, когда будете готовы.",
-        "cloud_explainer": "Аудио отправляется в Groq для распознавания. WhisperTray никогда его не хранит.",
+        "profile_setup": "Подготовим распознавание",
+        "local_explainer": "Аудио останется на этом устройстве. Для большинства компьютеров рекомендуем модель Small.",
+        "local_model_hint": "Модель можно скачать сейчас или при первой диктовке.",
+        "cloud_explainer": "Groq получает аудио только для распознавания. WhisperTray не сохраняет его копию.",
+        "cloud_key_hint": "Создайте бесплатный ключ в Groq Console, вставьте его сюда и проверьте подключение.",
         "get_groq_key": "Получить ключ Groq API",
-        "audio_ready": "Проверьте микрофон и горячую клавишу",
-        "audio_hint": "Позже это можно изменить в настройках.",
+        "audio_ready": "Выберите, как запускать диктовку",
+        "audio_hint": "Укажите микрофон и сочетание клавиш. Позже их можно изменить.",
+        "hotkey_hint": "Например: Ctrl+Space. Режим «нажать / нажать» запускает и останавливает запись двумя нажатиями.",
+        "audio_controls": "Микрофон и горячая клавиша",
         "finish": "Завершить настройку",
         "step": "Шаг {current} из 3",
     },
@@ -293,6 +363,11 @@ def ui_language(config: dict) -> str:
         return configured
     # On first run use the Windows/UI locale, then allow an explicit override.
     return "ru" if QLocale.system().name().lower().startswith("ru") else "en"
+
+
+def should_show_main_window(config: dict) -> bool:
+    """Keep startup behavior explicit and independently testable."""
+    return not bool(config.get("start_in_tray", False))
 
 
 def input_devices() -> list[tuple[str, int | None]]:
@@ -380,75 +455,36 @@ class StatusHud(QWidget):
 
 
 class ProfileCard(QPushButton):
-    """Large selectable profile control drawn with Qt rather than image/CSS art."""
+    """Accessible profile choice with a clear title and explicit trade-off."""
 
     def __init__(self, kind: str, title: str, subtitle: str, parent: QWidget | None = None):
         super().__init__(parent)
-        self.kind, self.title, self.subtitle = kind, title, subtitle
+        self.kind = kind
         self.setCheckable(True)
-        self.setMinimumSize(260, 290)
-        self.setMaximumHeight(310)
+        self.setMinimumSize(280, 170)
         self.setCursor(Qt.PointingHandCursor)
         self.setAccessibleName(title)
-        self.setStyleSheet("QPushButton { background: transparent; border: none; }")
-
-    def paintEvent(self, event) -> None:  # noqa: N802 - Qt callback name
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        rect = self.rect().adjusted(3, 3, -3, -3)
-        accent = QColor("#ff765d")
-        painter.setPen(QPen(accent if self.isChecked() else QColor("#41454d"), 3 if self.isChecked() else 2))
-        painter.setBrush(QColor("#202329"))
-        painter.drawRoundedRect(rect, 24, 24)
-        icon_rect = rect.adjusted(0, 34, 0, 0)
-        icon_center = icon_rect.center()
-        painter.setPen(QPen(QColor("#4b4f56"), 1))
-        painter.setBrush(QColor("#292c32"))
-        painter.drawEllipse(icon_center, 52, 52)
-        painter.setPen(QPen(accent, 5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        painter.setBrush(Qt.NoBrush)
-        if self.kind == "privacy":
-            path = QPainterPath()
-            path.moveTo(icon_center.x(), icon_center.y() - 34)
-            path.lineTo(icon_center.x() - 27, icon_center.y() - 20)
-            path.lineTo(icon_center.x() - 23, icon_center.y() + 17)
-            path.lineTo(icon_center.x(), icon_center.y() + 33)
-            path.lineTo(icon_center.x() + 23, icon_center.y() + 17)
-            path.lineTo(icon_center.x() + 27, icon_center.y() - 20)
-            path.closeSubpath()
-            painter.drawPath(path)
-            painter.setBrush(accent)
-            painter.drawRoundedRect(icon_center.x() - 10, icon_center.y() - 1, 20, 17, 4, 4)
-            painter.drawArc(icon_center.x() - 9, icon_center.y() - 15, 18, 20, 0, 180 * 16)
-        else:
-            bolt = QPainterPath()
-            bolt.moveTo(icon_center.x() + 6, icon_center.y() - 36)
-            bolt.lineTo(icon_center.x() - 25, icon_center.y() + 2)
-            bolt.lineTo(icon_center.x() - 3, icon_center.y() + 2)
-            bolt.lineTo(icon_center.x() - 10, icon_center.y() + 36)
-            bolt.lineTo(icon_center.x() + 27, icon_center.y() - 9)
-            bolt.lineTo(icon_center.x() + 5, icon_center.y() - 9)
-            bolt.closeSubpath()
-            painter.setBrush(accent)
-            painter.drawPath(bolt)
-        painter.setPen(QColor("#fff1df"))
-        font = painter.font()
-        font.setPointSize(20)
-        font.setBold(True)
-        painter.setFont(font)
-        painter.drawText(rect.adjusted(16, 165, -16, -58), Qt.AlignCenter, self.title)
-        painter.setPen(QColor("#b9b3ab"))
-        font.setPointSize(11)
-        font.setBold(False)
-        painter.setFont(font)
-        painter.drawText(rect.adjusted(18, 212, -18, -20), Qt.AlignCenter | Qt.TextWordWrap, self.subtitle)
-        if self.isChecked():
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(accent)
-            painter.drawEllipse(rect.right() - 43, rect.top() + 14, 24, 24)
-            painter.setPen(QPen(QColor("#202329"), 3, Qt.SolidLine, Qt.RoundCap))
-            painter.drawLine(rect.right() - 38, rect.top() + 26, rect.right() - 33, rect.top() + 31)
-            painter.drawLine(rect.right() - 33, rect.top() + 31, rect.right() - 24, rect.top() + 21)
+        self.setAccessibleDescription(subtitle.replace("\n", " "))
+        content = QVBoxLayout(self)
+        content.setContentsMargins(22, 20, 22, 20)
+        content.setSpacing(10)
+        title_label = QLabel(title)
+        title_label.setStyleSheet("background: transparent; color: #fff8eb; font-size: 20px; font-weight: 700;")
+        title_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        subtitle_label = QLabel(subtitle)
+        subtitle_label.setWordWrap(True)
+        subtitle_label.setStyleSheet("background: transparent; color: #c8c2b8; font-size: 13px;")
+        subtitle_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        content.addWidget(title_label)
+        content.addWidget(subtitle_label)
+        content.addStretch()
+        self.setStyleSheet(
+            "QPushButton { background: #202329; border: 2px solid #41454d; border-radius: 18px; "
+            "padding: 0; }"
+            "QPushButton:hover { background: #25282e; border-color: #ff9a84; }"
+            "QPushButton:checked { background: #2a2424; border: 3px solid #ff765d; }"
+            "QPushButton:focus { border: 3px solid #ffb09e; }"
+        )
 
 
 class SettingsDialog(QDialog):
@@ -484,6 +520,22 @@ class SettingsDialog(QDialog):
         label = QLabel(text)
         label.setObjectName("sectionTitle")
         return label
+
+    @staticmethod
+    def _hint(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setObjectName("hintLabel")
+        label.setWordWrap(True)
+        return label
+
+    def _option(self, checkbox: QCheckBox, hint: str) -> QWidget:
+        container = QWidget()
+        row = QVBoxLayout(container)
+        row.setContentsMargins(0, 2, 0, 8)
+        row.setSpacing(3)
+        row.addWidget(checkbox)
+        row.addWidget(self._hint(hint))
+        return container
 
     def _build_general_tab(self) -> None:
         page = QWidget()
@@ -590,33 +642,41 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
-        layout.addWidget(self._section_title(self.t["data_system"]))
-        system_form = QFormLayout()
-        layout.addLayout(system_form)
         from autostart import is_enabled
 
+        startup = QGroupBox(self.t["startup"])
+        startup_layout = QVBoxLayout(startup)
         self.autostart_initial = is_enabled()
         self.autostart_enabled = QCheckBox(self.t["autostart"])
         self.autostart_enabled.setChecked(self.autostart_initial)
-        system_form.addRow("", self.autostart_enabled)
+        startup_layout.addWidget(self._option(self.autostart_enabled, self.t["autostart_hint"]))
+        self.start_in_tray = QCheckBox(self.t["start_in_tray"])
+        self.start_in_tray.setChecked(self.config.get("start_in_tray", False))
+        startup_layout.addWidget(self._option(self.start_in_tray, self.t["start_in_tray_hint"]))
+        layout.addWidget(startup)
+
+        history_group = QGroupBox(self.t["history_section"])
+        history_layout = QFormLayout(history_group)
         history = self.config.get("history", {})
         self.history_enabled = QCheckBox(self.t["history"])
         self.history_enabled.setChecked(history.get("enabled", False))
-        system_form.addRow("", self.history_enabled)
+        history_layout.addRow("", self.history_enabled)
         self.retention = QComboBox()
         for days in (7, 30, 90, 365):
             self.retention.addItem(f"{days} {self.t['days']}", days)
         self.retention.setCurrentIndex(max(0, self.retention.findData(history.get("retention_days", 30))))
-        system_form.addRow(self.t["retention"], self.retention)
+        history_layout.addRow(self.t["retention"], self.retention)
         clear_history = QPushButton(self.t["clear_history"])
         clear_history.clicked.connect(self.clear_history)
-        system_form.addRow("", clear_history)
+        history_layout.addRow("", clear_history)
+        layout.addWidget(history_group)
 
-        layout.addWidget(self._section_title(self.t["diagnostics"]))
+        diagnostics_group = QGroupBox(self.t["diagnostics"])
+        diagnostics_layout = QVBoxLayout(diagnostics_group)
         note = QLabel(self.t["diagnostics_info"])
         note.setObjectName("detailLabel")
         note.setWordWrap(True)
-        layout.addWidget(note)
+        diagnostics_layout.addWidget(note)
         from diagnostics import collect_diagnostics
 
         self.diagnostics_field = QPlainTextEdit(
@@ -624,12 +684,22 @@ class SettingsDialog(QDialog):
         )
         self.diagnostics_field.setReadOnly(True)
         self.diagnostics_field.setMaximumHeight(130)
-        layout.addWidget(self.diagnostics_field)
+        self.diagnostics_field.hide()
+        diagnostics_layout.addWidget(self.diagnostics_field)
+        self.diagnostics_toggle = QPushButton(self.t["show_diagnostics"])
+        self.diagnostics_toggle.clicked.connect(self.toggle_diagnostics)
+        diagnostics_layout.addWidget(self.diagnostics_toggle)
         export = QPushButton(self.t["export_diagnostics"])
         export.clicked.connect(self.export_diagnostics)
-        layout.addWidget(export)
+        diagnostics_layout.addWidget(export)
+        layout.addWidget(diagnostics_group)
         layout.addStretch()
         self.tabs.addTab(page, self.t["data_system"])
+
+    def toggle_diagnostics(self) -> None:
+        visible = not self.diagnostics_field.isVisible()
+        self.diagnostics_field.setVisible(visible)
+        self.diagnostics_toggle.setText(self.t["hide_diagnostics"] if visible else self.t["show_diagnostics"])
 
     @staticmethod
     def _has_groq_key() -> bool:
@@ -646,17 +716,17 @@ class SettingsDialog(QDialog):
             return
         hotkey = self.hotkey.text().strip()
         if not hotkey:
-            QMessageBox.warning(self, APP_NAME, "Hotkey cannot be empty.")
+            QMessageBox.warning(self, APP_NAME, self.t["hotkey_empty"])
             return
         try:
             from platform_integration import parse_hotkey
 
             parse_hotkey(hotkey)
         except Exception:
-            QMessageBox.warning(self, APP_NAME, "The selected hotkey is not valid.")
+            QMessageBox.warning(self, APP_NAME, self.t["hotkey_invalid"])
             return
         if self.profile.currentData() == "speed" and not self.groq_key.text().strip() and not self._has_groq_key():
-            QMessageBox.warning(self, APP_NAME, "Groq API key is required for the Speed profile.")
+            QMessageBox.warning(self, APP_NAME, self.t["groq_required"])
             return
         self.config.update(
             {
@@ -670,6 +740,9 @@ class SettingsDialog(QDialog):
                 "model": self.model.currentData(),
                 "ui_language": self.ui_lang.currentData(),
                 "onboarding_complete": True,
+                "start_in_tray": getattr(self, "start_in_tray", None).isChecked()
+                if hasattr(self, "start_in_tray")
+                else self.config.get("start_in_tray", False),
                 "hud": {
                     "enabled": self.hud_enabled.isChecked(),
                     "position": self.position.currentData(),
@@ -732,7 +805,10 @@ class SettingsDialog(QDialog):
 
     def _build_onboarding(self, layout: QVBoxLayout) -> None:
         """Focused first-run flow; normal Settings stays comprehensive below."""
-        self.setMinimumSize(700, 700)
+        self.setMinimumSize(720, 650)
+        self.resize(720, 650)
+        layout.setContentsMargins(28, 22, 28, 24)
+        layout.setSpacing(9)
         self.ot = ONBOARDING_STRINGS[self.lang]
         logo = QLabel()
         logo.setAlignment(Qt.AlignCenter)
@@ -748,9 +824,11 @@ class SettingsDialog(QDialog):
         subtitle.setObjectName("detailLabel")
         subtitle.setAlignment(Qt.AlignCenter)
         layout.addWidget(subtitle)
-        self.progress = QLabel()
-        self.progress.setAlignment(Qt.AlignCenter)
-        self.progress.setStyleSheet("color: #ff765d; font-size: 15px; padding: 8px;")
+        self.onboarding_brand_widgets = (logo, heading, subtitle)
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 3)
+        self.progress.setTextVisible(True)
+        self.progress.setFixedHeight(24)
         layout.addWidget(self.progress)
         self.profile = QComboBox()
         self.profile.addItem(self.t["privacy"], "privacy")
@@ -771,9 +849,13 @@ class SettingsDialog(QDialog):
         layout.setAlignment(Qt.AlignTop)
         prompt = QLabel(self.ot["choose_profile"])
         prompt.setAlignment(Qt.AlignCenter)
-        prompt.setStyleSheet("font-size: 18px; font-weight: 700; padding: 10px;")
+        prompt.setStyleSheet("font-size: 20px; font-weight: 700; padding-top: 8px;")
         layout.addWidget(prompt)
+        hint = self._hint(self.ot["choose_profile_hint"])
+        hint.setAlignment(Qt.AlignCenter)
+        layout.addWidget(hint)
         cards = QHBoxLayout()
+        cards.setSpacing(16)
         self.privacy_card = ProfileCard("privacy", self.t["privacy"].split(" (")[0], self.ot["privacy_card"])
         self.speed_card = ProfileCard("speed", self.t["speed"].split(" (")[0], self.ot["speed_card"])
         self.privacy_card.clicked.connect(lambda: self._select_onboarding_profile("privacy"))
@@ -792,12 +874,14 @@ class SettingsDialog(QDialog):
     def _onboarding_backend_page(self) -> None:
         page = QWidget()
         layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 10, 28, 12)
+        layout.setSpacing(14)
         title = QLabel(self.ot["profile_setup"])
         title.setObjectName("statusLabel")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
         self.backend_pages = QStackedWidget()
-        local = QWidget()
+        local = QGroupBox(self.t["privacy"])
         local_layout = QFormLayout(local)
         local_note = QLabel(self.ot["local_explainer"])
         local_note.setWordWrap(True)
@@ -810,11 +894,15 @@ class SettingsDialog(QDialog):
         self.prepare_model_button = QPushButton(self.t["prepare_model"])
         self.prepare_model_button.clicked.connect(self.prepare_local_model)
         local_layout.addRow("", self.prepare_model_button)
-        cloud = QWidget()
+        local_hint = self._hint(self.ot["local_model_hint"])
+        local_layout.addRow("", local_hint)
+        cloud = QGroupBox(self.t["speed"])
         cloud_layout = QFormLayout(cloud)
         cloud_note = QLabel(self.ot["cloud_explainer"])
         cloud_note.setWordWrap(True)
         cloud_layout.addRow(cloud_note)
+        cloud_hint = self._hint(self.ot["cloud_key_hint"])
+        cloud_layout.addRow(cloud_hint)
         link = QLabel(f'<a href="https://console.groq.com/keys">{self.ot["get_groq_key"]}</a>')
         link.setOpenExternalLinks(True)
         cloud_layout.addRow(link)
@@ -837,6 +925,8 @@ class SettingsDialog(QDialog):
     def _onboarding_audio_page(self) -> None:
         page = QWidget()
         layout = QVBoxLayout(page)
+        layout.setContentsMargins(36, 10, 36, 12)
+        layout.setSpacing(12)
         title = QLabel(self.ot["audio_ready"])
         title.setObjectName("statusLabel")
         title.setAlignment(Qt.AlignCenter)
@@ -845,7 +935,8 @@ class SettingsDialog(QDialog):
         hint.setObjectName("detailLabel")
         hint.setAlignment(Qt.AlignCenter)
         layout.addWidget(hint)
-        form = QFormLayout()
+        controls = QGroupBox(self.ot["audio_controls"])
+        form = QFormLayout(controls)
         self.mic = QComboBox()
         self.mic.addItem(self.t["default_mic"], None)
         for name, index in input_devices():
@@ -862,7 +953,9 @@ class SettingsDialog(QDialog):
         self.hotkey_mode.addItem(self.t["hold"], "hold")
         self.hotkey_mode.setCurrentIndex(1 if self.config.get("hotkey_mode") == "hold" else 0)
         form.addRow(self.t["hotkey_mode"], self.hotkey_mode)
-        layout.addLayout(form)
+        hotkey_hint = self._hint(self.ot["hotkey_hint"])
+        form.addRow("", hotkey_hint)
+        layout.addWidget(controls)
         # Preserve advanced settings on first run; these controls remain available in Settings.
         self.rec_lang = QComboBox()
         self.rec_lang.addItems(["Auto", "Русский (ru)", "English (en)"])
@@ -905,8 +998,11 @@ class SettingsDialog(QDialog):
         self.speed_card.setChecked(profile == "speed")
 
     def set_onboarding_step(self, step: int) -> None:
+        for widget in self.onboarding_brand_widgets:
+            widget.setVisible(step == 0)
         self.pages.setCurrentIndex(step)
-        self.progress.setText(self.ot["step"].format(current=step + 1))
+        self.progress.setValue(step + 1)
+        self.progress.setFormat(self.ot["step"].format(current=step + 1))
         if step == 1:
             self.backend_pages.setCurrentIndex(1 if self.profile.currentData() == "speed" else 0)
 
@@ -915,17 +1011,17 @@ class SettingsDialog(QDialog):
             import sounddevice as sd
 
             sd.check_input_settings(device=self.mic.currentData(), channels=1, samplerate=16000, dtype="float32")
-            QMessageBox.information(self, APP_NAME, "Microphone is available.")
+            QMessageBox.information(self, APP_NAME, self.t["mic_available"])
         except Exception as exc:
-            QMessageBox.warning(self, APP_NAME, f"Microphone test failed: {exc}")
+            QMessageBox.warning(self, APP_NAME, self.t["mic_failed"].format(error=exc))
 
     def test_groq_key(self) -> None:
         key = self.groq_key.text().strip()
         if not key:
-            QMessageBox.warning(self, APP_NAME, "Enter a Groq API key to test it.")
+            QMessageBox.warning(self, APP_NAME, self.t["key_enter"])
             return
         self.test_key_button.setEnabled(False)
-        self.test_key_button.setText("Testing…")
+        self.test_key_button.setText(self.t["key_testing"])
         self._key_result: queue.Queue = queue.Queue()
 
         def check():
@@ -933,9 +1029,9 @@ class SettingsDialog(QDialog):
                 from groq import Groq
 
                 Groq(api_key=key).models.list()
-                self._key_result.put((True, "Groq API key is valid."))
+                self._key_result.put((True, self.t["key_valid"]))
             except Exception as exc:
-                self._key_result.put((False, f"Groq key test failed: {exc}"))
+                self._key_result.put((False, self.t["key_failed"].format(error=exc)))
 
         threading.Thread(target=check, daemon=True, name="GroqKeyTest").start()
 
@@ -1050,6 +1146,7 @@ class WhisperTrayUi:
         layout.addWidget(QLabel(self.t["last_result"]))
         self.last_result = QPlainTextEdit()
         self.last_result.setReadOnly(True)
+        self.last_result.setPlaceholderText(self.t["last_result_hint"])
         self.last_result.setMaximumHeight(110)
         layout.addWidget(self.last_result)
         self.action_button = QPushButton()
@@ -1339,5 +1436,6 @@ def run_qt(state) -> int:
         QTimer.singleShot(0, ui.open_onboarding)
     else:
         ui.start_hotkey_listener()
-        ui.show_window()
+        if should_show_main_window(state.config):
+            ui.show_window()
     return app.exec()

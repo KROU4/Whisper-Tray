@@ -21,7 +21,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication, QDialog, QPushButton  # noqa: E402
 
 from config_store import DEFAULT_CONFIG  # noqa: E402
-from ui import SettingsDialog, ViewState, WhisperTrayUi  # noqa: E402
+from ui import SettingsDialog, ViewState, WhisperTrayUi, should_show_main_window  # noqa: E402
 
 
 class FakeState:
@@ -159,6 +159,9 @@ def test_diagnostics_are_inside_settings_and_removed_from_main_surfaces(view, qt
     dialog.tabs.setCurrentIndex(2)
     qt_app.processEvents()
 
+    assert not dialog.diagnostics_field.isVisible()
+    dialog.diagnostics_toggle.click()
+    qt_app.processEvents()
     assert dialog.diagnostics_field.isVisible()
     assert dialog.autostart_enabled.isChecked() is False
     assert "Diagnostics" not in {button.text() for button in view.window.findChildren(QPushButton)}
@@ -180,6 +183,20 @@ def test_settings_applies_autostart_checkbox(view, qt_app, monkeypatch):
     assert calls == ["enable"]
 
 
+def test_settings_persists_start_in_tray_separately_from_autostart(view, qt_app, monkeypatch):
+    monkeypatch.setattr("autostart.is_enabled", lambda: False)
+    monkeypatch.setattr("platform_integration.parse_hotkey", lambda value: value)
+    dialog = SettingsDialog(view)
+    dialog.autostart_enabled.setChecked(False)
+    dialog.start_in_tray.setChecked(True)
+    dialog.save()
+    qt_app.processEvents()
+
+    assert view.state.config["start_in_tray"] is True
+    assert should_show_main_window(view.state.config) is False
+    assert should_show_main_window({"start_in_tray": False}) is True
+
+
 def test_onboarding_has_three_profile_gated_steps(view, qt_app):
     dialog = SettingsDialog(view, onboarding=True)
     dialog.show()
@@ -189,12 +206,15 @@ def test_onboarding_has_three_profile_gated_steps(view, qt_app):
     assert dialog.pages.currentIndex() == 0
     assert dialog.backend_pages.currentIndex() == 0
     assert dialog.privacy_card.isChecked()
+    assert dialog.progress.value() == 1
+    assert "offline" in dialog.privacy_card.accessibleDescription().lower()
 
     dialog.speed_card.click()
     dialog.set_onboarding_step(1)
     qt_app.processEvents()
 
     assert dialog.profile.currentData() == "speed"
+    assert dialog.progress.value() == 2
     assert dialog.backend_pages.currentIndex() == 1
     assert dialog.groq_key.isVisible()
     assert not dialog.model.isVisible()
