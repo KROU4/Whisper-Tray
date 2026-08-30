@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -51,10 +52,27 @@ QMainWindow, QDialog, QWidget {
 }
 QLabel#statusLabel {
     color: #fff8eb;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
 }
-QLabel#detailLabel { color: #c8c2b8; }
+QLabel#detailLabel { color: #b9b3aa; font-size: 12px; }
+QLabel#appTitle { color: #fff8eb; font-size: 22px; font-weight: 750; }
+QLabel#appCaption { color: #aaa49a; font-size: 12px; }
+QLabel#sectionLabel { color: #d8d2c8; font-size: 12px; font-weight: 650; }
+QLabel#profileBadge {
+    background: #2a2e35;
+    border: 1px solid #41464f;
+    border-radius: 11px;
+    color: #ded8ce;
+    padding: 4px 9px;
+    font-size: 11px;
+}
+QFrame#statusCard, QFrame#resultCard {
+    background: #202329;
+    border: 1px solid #343840;
+    border-radius: 12px;
+}
+QFrame#statusCard QLabel { background: transparent; }
 QLabel#hintLabel { color: #aaa49a; font-size: 12px; }
 QPlainTextEdit, QLineEdit, QComboBox {
     background: #25282e;
@@ -79,8 +97,10 @@ QPushButton#primaryAction {
     border-color: #ff8b70;
     color: #241b18;
     font-weight: 700;
+    min-height: 26px;
 }
 QPushButton#primaryAction:hover { background: #ff8b70; }
+QPushButton#secondaryAction { background: transparent; }
 QCheckBox { spacing: 8px; }
 QGroupBox {
     background: #202329;
@@ -203,6 +223,7 @@ STRINGS = {
         "days": "дней",
         "last_result": "Последний результат",
         "last_result_hint": "Здесь появится последняя расшифровка",
+        "tagline": "Диктовка в любой программе",
         "onboarding": "Первый запуск",
         "welcome": "Выберите, как WhisperTray будет обрабатывать аудио.",
         "cloud_note": "В режиме «Скорость» аудио отправляется в Groq. Нужен ваш API-ключ.",
@@ -279,6 +300,7 @@ STRINGS = {
         "days": "days",
         "last_result": "Last result",
         "last_result_hint": "Your latest transcription will appear here",
+        "tagline": "Dictation in any application",
         "onboarding": "First launch",
         "welcome": "Choose how WhisperTray processes audio.",
         "cloud_note": "Speed mode sends audio to Groq. Your own API key is required.",
@@ -365,9 +387,9 @@ def ui_language(config: dict) -> str:
     return "ru" if QLocale.system().name().lower().startswith("ru") else "en"
 
 
-def should_show_main_window(config: dict) -> bool:
+def should_show_main_window(config: dict, *, force_show: bool = False) -> bool:
     """Keep startup behavior explicit and independently testable."""
-    return not bool(config.get("start_in_tray", False))
+    return force_show or not bool(config.get("start_in_tray", False))
 
 
 def input_devices() -> list[tuple[str, int | None]]:
@@ -409,13 +431,19 @@ class RecordingPulse(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         center = self.rect().center()
         if self.recording:
-            radius = 17 + (self.phase % 10) / 5
-            painter.setPen(QPen(QColor("#ff765d"), 2))
+            radius = 16 + (self.phase % 10) / 4
+            pulse = QColor("#ff765d")
+            pulse.setAlpha(170 - (self.phase % 10) * 12)
+            painter.setPen(QPen(pulse, 2))
             painter.setBrush(Qt.NoBrush)
             painter.drawEllipse(center, radius, radius)
+        else:
+            painter.setPen(QPen(QColor("#3d424b"), 2))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawEllipse(center, 17, 17)
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor("#ff765d") if self.recording else QColor("#59606b"))
-        painter.drawEllipse(center, 12, 12)
+        painter.drawEllipse(center, 10, 10)
 
 
 class StatusHud(QWidget):
@@ -1110,7 +1138,7 @@ class WhisperTrayUi:
         self.window = QMainWindow()
         self.window.setWindowTitle(APP_NAME)
         self.window.setStyleSheet(APP_STYLE)
-        self.window.setMinimumWidth(380)
+        self.window.setMinimumWidth(440)
         self.window.closeEvent = self.close_to_tray
         self.build_window()
         self.hud = StatusHud(state.config, self.lang)
@@ -1126,36 +1154,81 @@ class WhisperTrayUi:
     def build_window(self) -> None:
         root = QWidget()
         layout = QVBoxLayout(root)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(24, 24, 24, 22)
+        layout.setSpacing(16)
+
+        header = QHBoxLayout()
+        header.setSpacing(12)
         logo = QLabel()
-        logo.setAlignment(Qt.AlignCenter)
         brand = QPixmap(str(app_icon_path()))
         if not brand.isNull():
-            logo.setPixmap(brand.scaled(58, 58, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-            layout.addWidget(logo)
+            logo.setPixmap(brand.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            header.addWidget(logo)
+        brand_copy = QVBoxLayout()
+        brand_copy.setSpacing(1)
+        app_title = QLabel(APP_NAME)
+        app_title.setObjectName("appTitle")
+        app_caption = QLabel(self.t["tagline"])
+        app_caption.setObjectName("appCaption")
+        brand_copy.addWidget(app_title)
+        brand_copy.addWidget(app_caption)
+        header.addLayout(brand_copy)
+        header.addStretch(1)
+        self.profile_badge = QLabel()
+        self.profile_badge.setObjectName("profileBadge")
+        header.addWidget(self.profile_badge, alignment=Qt.AlignTop)
+        layout.addLayout(header)
+
+        status_card = QFrame()
+        status_card.setObjectName("statusCard")
+        status_layout = QHBoxLayout(status_card)
+        status_layout.setContentsMargins(16, 14, 18, 14)
+        status_layout.setSpacing(14)
         self.recording_pulse = RecordingPulse()
-        layout.addWidget(self.recording_pulse, alignment=Qt.AlignHCenter)
+        status_layout.addWidget(self.recording_pulse)
+        status_copy = QVBoxLayout()
+        status_copy.setSpacing(3)
         self.status_label = QLabel()
         self.status_label.setObjectName("statusLabel")
-        self.status_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.status_label)
+        status_copy.addWidget(self.status_label)
         self.detail_label = QLabel()
         self.detail_label.setObjectName("detailLabel")
-        self.detail_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.detail_label)
-        layout.addWidget(QLabel(self.t["last_result"]))
+        status_copy.addWidget(self.detail_label)
+        status_layout.addLayout(status_copy, 1)
+        layout.addWidget(status_card)
+
+        result_label = QLabel(self.t["last_result"])
+        result_label.setObjectName("sectionLabel")
+        layout.addWidget(result_label)
+        result_card = QFrame()
+        result_card.setObjectName("resultCard")
+        result_layout = QVBoxLayout(result_card)
+        result_layout.setContentsMargins(1, 1, 1, 1)
         self.last_result = QPlainTextEdit()
         self.last_result.setReadOnly(True)
         self.last_result.setPlaceholderText(self.t["last_result_hint"])
-        self.last_result.setMaximumHeight(110)
-        layout.addWidget(self.last_result)
+        self.last_result.setFrameShape(QFrame.NoFrame)
+        self.last_result.setMinimumHeight(104)
+        self.last_result.setMaximumHeight(124)
+        result_layout.addWidget(self.last_result)
+        layout.addWidget(result_card)
+
         self.action_button = QPushButton()
         self.action_button.setObjectName("primaryAction")
         self.action_button.clicked.connect(self.toggle_recording)
         layout.addWidget(self.action_button)
+
+        secondary = QHBoxLayout()
+        secondary.setSpacing(10)
+        file_button = QPushButton(self.t["file"])
+        file_button.setObjectName("secondaryAction")
+        file_button.clicked.connect(self.transcribe_file)
+        secondary.addWidget(file_button)
         settings = QPushButton(self.t["settings"])
+        settings.setObjectName("secondaryAction")
         settings.clicked.connect(self.open_settings)
-        layout.addWidget(settings)
+        secondary.addWidget(settings)
+        layout.addLayout(secondary)
         self.window.setCentralWidget(root)
 
     def build_tray(self) -> None:
@@ -1204,7 +1277,8 @@ class WhisperTrayUi:
             self.state.config.get("hud", {}).get("reduce_motion", False),
         )
         profile = self.t["privacy"] if self.state.config.get("profile") == "privacy" else self.t["speed"]
-        self.detail_label.setText(f"{self.t['profile']}: {profile} · {self.state.config.get('hotkey', 'win+alt')}")
+        self.profile_badge.setText(profile.split(" (")[0])
+        self.detail_label.setText(f"{self.t['hotkey']}: {self.state.config.get('hotkey', 'win+alt')}")
         busy = self.status == ViewState.PROCESSING
         self.action_button.setEnabled(not busy)
         self.action_button.setText(self.t["stop"] if self.status == ViewState.RECORDING else self.t["record"])
@@ -1424,7 +1498,7 @@ class WhisperTrayUi:
         QCoreApplication.quit()
 
 
-def run_qt(state) -> int:
+def run_qt(state, *, force_show: bool = False) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setWindowIcon(QIcon(str(app_icon_path())))
@@ -1436,6 +1510,6 @@ def run_qt(state) -> int:
         QTimer.singleShot(0, ui.open_onboarding)
     else:
         ui.start_hotkey_listener()
-        if should_show_main_window(state.config):
+        if should_show_main_window(state.config, force_show=force_show):
             ui.show_window()
     return app.exec()

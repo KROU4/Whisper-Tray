@@ -195,6 +195,7 @@ def test_settings_persists_start_in_tray_separately_from_autostart(view, qt_app,
     assert view.state.config["start_in_tray"] is True
     assert should_show_main_window(view.state.config) is False
     assert should_show_main_window({"start_in_tray": False}) is True
+    assert should_show_main_window({"start_in_tray": True}, force_show=True) is True
 
 
 def test_onboarding_has_three_profile_gated_steps(view, qt_app):

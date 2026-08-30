@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import queue
+import sys
 import threading
 from pathlib import Path
 
@@ -64,7 +65,7 @@ def main() -> int:
     from ui import run_qt
 
     logger.info("WhisperTray started: profile=%s, hotkey=%s", state.config.get("profile"), state.config.get("hotkey"))
-    return run_qt(state)
+    return run_qt(state, force_show="--show" in sys.argv[1:])
 
 
 if __name__ == "__main__":

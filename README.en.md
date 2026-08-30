@@ -44,6 +44,10 @@ Download the installer for your OS from [GitHub Releases](https://github.com/KRO
 - macOS: `.dmg` or `.pkg`
 - Linux: the native package built for Ubuntu by the release workflow
 
+On Windows, the setup wizard lets you choose the destination folder, review
+the license agreement, optionally create a Desktop shortcut, and open the
+WhisperTray main window when installation finishes.
+
 The first run uses three short steps: choose local or cloud processing, prepare
 that transcription method, and configure the microphone and hotkey. Then:
 
