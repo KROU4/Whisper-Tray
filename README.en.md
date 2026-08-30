@@ -36,6 +36,50 @@ Privacy is the default. A Groq failure never changes the profile or sends audio
 to another service. The Groq API key is stored in the operating-system
 credential vault, not in `config.json`.
 
+## Getting a Groq API key
+
+The key is required only for the Speed profile. The local Privacy profile does
+not require a Groq account.
+
+1. Sign in to [GroqCloud Console](https://console.groq.com/) or create an
+   account.
+2. Open [API Keys](https://console.groq.com/keys).
+3. Select **Create API Key**, enter a recognizable name such as
+   `WhisperTray`, and copy the generated key.
+4. Select the Speed profile in WhisperTray. You can enter the key during the
+   first run or later under Settings → General → Groq API key.
+5. Select Test key, then save the settings.
+
+Do not put the key in `config.json`, send it to other people, or publish it on
+GitHub. WhisperTray stores it in the operating-system credential vault. If a
+key is exposed, delete it in GroqCloud Console and create a new one.
+
+### Groq limits
+
+WhisperTray uses `whisper-large-v3-turbo` by default. Groq currently lists the
+following base limits for this model on the Free plan:
+
+| Limit | Free plan |
+| --- | ---: |
+| Requests per minute | 20 |
+| Requests per day | 2,000 |
+| Audio per hour | 7,200 seconds, or 2 hours |
+| Audio per day | 28,800 seconds, or 8 hours |
+| Maximum uploaded file size | 25 MB |
+
+Whichever limit is reached first applies. When a quota is exhausted, Groq
+returns `429 Too Many Requests`; transcription can continue after the quota
+resets. The exact limits for an account are always available on the
+[GroqCloud Limits](https://console.groq.com/settings/limits) page because Groq
+may change them independently of WhisperTray releases. Groq also publishes
+reference tables in [Rate Limits](https://console.groq.com/docs/rate-limits)
+and [Speech to Text](https://console.groq.com/docs/speech-to-text).
+
+WhisperTray also has its own ten-minute limit per dictation. This does not
+increase or replace the Groq quotas. For paid usage, the official
+`whisper-large-v3-turbo` price at the time of this README update is $0.04 per
+hour of processed audio, and the Developer plan accepts files up to 100 MB.
+
 ## Install and first run
 
 Download the installer for your OS from [GitHub Releases](https://github.com/KROU4/Whisper-Tray/releases):
