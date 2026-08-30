@@ -151,6 +151,15 @@ def test_hotkey_capture_translates_ctrl_space_to_machine_format(qt_app):
     assert hotkey_from_key_event(event) == "ctrl+space"
 
 
+def test_settings_hotkey_is_changed_through_capture_button_not_manual_input(view):
+    dialog = SettingsDialog(view)
+
+    assert dialog.hotkey.isReadOnly()
+    assert dialog.hotkey.accessibleName() == "Hotkey"
+    assert dialog.change_hotkey_button.text() == "Change"
+    assert dialog.change_hotkey_button.isEnabled()
+
+
 def test_settings_change_button_saves_captured_hotkey_immediately(view, qt_app, monkeypatch):
     monkeypatch.setattr("platform_integration.parse_hotkey", lambda value: value)
 

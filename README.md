@@ -11,7 +11,7 @@ WhisperTray — настольное приложение для диктовк�
 речь и вставит результат в активное окно. Оно работает локально либо с Groq,
 когда пользователь явно выбирает облачный режим и указывает свой API-ключ.
 
-> Актуальный релиз: [WhisperTray 1.1.3](https://github.com/KROU4/Whisper-Tray/releases/latest).
+> Актуальный релиз: [WhisperTray 1.1.4](https://github.com/KROU4/Whisper-Tray/releases/latest).
 > Нативные установщики собираются автоматически для Windows, macOS и Linux.
 
 ## Возможности
