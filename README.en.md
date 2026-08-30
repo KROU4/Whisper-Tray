@@ -54,6 +54,8 @@ that transcription method, and configure the microphone and hotkey. Then:
 1. In Privacy, prepare or download a local model in Settings.
 2. In Speed, enter and test a Groq key. It is saved only after it can be
    stored in the system credential vault.
+3. To change the shortcut, open Settings → General, select Change next to the
+   hotkey, and press the new key combination.
 
 Local models are not part of the installer and download on demand. The sizes
 shown in the app range from about 75 MB (`tiny`) to 2.9 GB (`large`).

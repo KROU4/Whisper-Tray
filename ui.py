@@ -16,7 +16,7 @@ from enum import Enum
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication, QLocale, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QCursor, QGuiApplication, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QCursor, QGuiApplication, QIcon, QKeyEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -194,6 +194,12 @@ STRINGS = {
         "test_mic": "Проверить микрофон",
         "language": "Язык распознавания",
         "hotkey": "Горячая клавиша",
+        "change_hotkey": "Изменить",
+        "hotkey_capture_title": "Новое сочетание",
+        "hotkey_capture_prompt": "Нажмите нужное сочетание клавиш",
+        "hotkey_capture_hint": "Например, Ctrl + Space. Esc — отмена.",
+        "hotkey_capture_saved": "Сохранено: {hotkey}",
+        "hotkey_capture_failed": "Не удалось применить это сочетание. Попробуйте другое.",
         "hotkey_mode": "Режим клавиши",
         "toggle": "Нажать / нажать",
         "hold": "Удерживать",
@@ -271,6 +277,12 @@ STRINGS = {
         "test_mic": "Test microphone",
         "language": "Recognition language",
         "hotkey": "Hotkey",
+        "change_hotkey": "Change",
+        "hotkey_capture_title": "New shortcut",
+        "hotkey_capture_prompt": "Press the shortcut you want to use",
+        "hotkey_capture_hint": "For example, Ctrl + Space. Press Esc to cancel.",
+        "hotkey_capture_saved": "Saved: {hotkey}",
+        "hotkey_capture_failed": "This shortcut could not be applied. Try another one.",
         "hotkey_mode": "Hotkey mode",
         "toggle": "Press / press",
         "hold": "Hold to record",
@@ -515,6 +527,119 @@ class ProfileCard(QPushButton):
         )
 
 
+def hotkey_display_name(value: str) -> str:
+    """Format the serialized shortcut for people without changing its value."""
+    labels = {
+        "ctrl": "Ctrl", "alt": "Alt", "shift": "Shift", "win": "Win", "cmd": "Cmd",
+        "space": "Space", "enter": "Enter", "esc": "Esc", "tab": "Tab",
+        "backspace": "Backspace", "delete": "Delete", "insert": "Insert",
+        "home": "Home", "end": "End", "page_up": "Page Up", "page_down": "Page Down",
+        "up": "Up", "down": "Down", "left": "Left", "right": "Right",
+    }
+    return " + ".join(
+        labels.get(part, part.upper() if part.startswith("f") and part[1:].isdigit() else part.upper())
+        for part in value.split("+")
+    )
+
+
+def hotkey_from_key_event(event: QKeyEvent) -> str | None:
+    """Translate a Qt key press into WhisperTray's portable config format."""
+    key = event.key()
+    if key in {Qt.Key_Control, Qt.Key_Alt, Qt.Key_Shift, Qt.Key_Meta}:
+        return None
+
+    parts: list[str] = []
+    modifiers = event.modifiers()
+    if modifiers & Qt.ControlModifier:
+        parts.append("ctrl")
+    if modifiers & Qt.AltModifier:
+        parts.append("alt")
+    if modifiers & Qt.ShiftModifier:
+        parts.append("shift")
+    if modifiers & Qt.MetaModifier:
+        parts.append("cmd" if sys.platform == "darwin" else "win")
+
+    named_keys = {
+        Qt.Key_Space: "space", Qt.Key_Return: "enter", Qt.Key_Enter: "enter", Qt.Key_Tab: "tab",
+        Qt.Key_Backspace: "backspace", Qt.Key_Delete: "delete", Qt.Key_Insert: "insert",
+        Qt.Key_Home: "home", Qt.Key_End: "end", Qt.Key_PageUp: "page_up", Qt.Key_PageDown: "page_down",
+        Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right",
+    }
+    final = named_keys.get(key)
+    if final is None and Qt.Key_F1 <= key <= Qt.Key_F24:
+        final = f"f{key - Qt.Key_F1 + 1}"
+    if final is None and Qt.Key_A <= key <= Qt.Key_Z:
+        final = chr(ord("a") + key - Qt.Key_A)
+    if final is None and Qt.Key_0 <= key <= Qt.Key_9:
+        final = chr(ord("0") + key - Qt.Key_0)
+    if final is None:
+        text = event.text().lower()
+        if len(text) == 1 and text not in {"+", "\x00"} and text.isprintable():
+            final = text
+    if final is None:
+        return None
+    parts.append(final)
+    return "+".join(parts)
+
+
+class HotkeyCaptureDialog(QDialog):
+    """Modal keyboard grabber used instead of asking people to type syntax."""
+
+    def __init__(self, parent: QWidget, strings: dict[str, str]):
+        super().__init__(parent)
+        self.t = strings
+        self.hotkey: str | None = None
+        self.setWindowTitle(self.t["hotkey_capture_title"])
+        self.setModal(True)
+        self.setMinimumWidth(380)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(10)
+        prompt = QLabel(self.t["hotkey_capture_prompt"])
+        prompt.setObjectName("statusLabel")
+        prompt.setAlignment(Qt.AlignCenter)
+        layout.addWidget(prompt)
+        hint = QLabel(self.t["hotkey_capture_hint"])
+        hint.setObjectName("hintLabel")
+        hint.setAlignment(Qt.AlignCenter)
+        layout.addWidget(hint)
+        QTimer.singleShot(0, self._begin_capture)
+
+    def _begin_capture(self) -> None:
+        self.activateWindow()
+        self.setFocus(Qt.OtherFocusReason)
+        self.grabKeyboard()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.isAutoRepeat():
+            event.accept()
+            return
+        if event.key() == Qt.Key_Escape:
+            self.reject()
+            return
+        value = hotkey_from_key_event(event)
+        if value is None:
+            event.accept()
+            return
+        try:
+            from platform_integration import normalize_hotkey, parse_hotkey
+
+            value = normalize_hotkey(value)
+            parse_hotkey(value)
+        except Exception:
+            event.accept()
+            return
+        self.hotkey = value
+        self.accept()
+
+    def done(self, result: int) -> None:
+        try:
+            self.releaseKeyboard()
+        except RuntimeError:
+            pass
+        super().done(result)
+
+
 class SettingsDialog(QDialog):
     def __init__(self, app: "WhisperTrayUi", onboarding: bool = False):
         super().__init__(app.window)
@@ -564,6 +689,63 @@ class SettingsDialog(QDialog):
         row.addWidget(checkbox)
         row.addWidget(self._hint(hint))
         return container
+
+    def _add_hotkey_control(self, form: QFormLayout) -> None:
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+        self.hotkey = QLineEdit(hotkey_display_name(self.config.get("hotkey", "win+alt")))
+        self.hotkey.setReadOnly(True)
+        self.hotkey.setAccessibleName(self.t["hotkey"])
+        self.change_hotkey_button = QPushButton(self.t["change_hotkey"])
+        self.change_hotkey_button.setObjectName("secondaryAction")
+        self.change_hotkey_button.clicked.connect(self.capture_hotkey)
+        row.addWidget(self.hotkey, 1)
+        row.addWidget(self.change_hotkey_button)
+        form.addRow(self.t["hotkey"], container)
+        self.hotkey_feedback = self._hint("")
+        self.hotkey_feedback.hide()
+        form.addRow("", self.hotkey_feedback)
+
+    def capture_hotkey(self) -> None:
+        listener = getattr(self.app.state, "hotkey_listener", None)
+        suspended = False
+        if listener and hasattr(listener, "suspend_hotkey"):
+            try:
+                suspended = listener.suspend_hotkey()
+            except Exception:
+                logger.exception("Could not suspend the global hotkey for capture")
+
+        capture = HotkeyCaptureDialog(self, self.t)
+        applied = False
+        try:
+            if capture.exec() != QDialog.Accepted or not capture.hotkey:
+                return
+            value = capture.hotkey
+            if self.onboarding:
+                self.config["hotkey"] = value
+            else:
+                updated = deepcopy(self.app.state.config)
+                updated["hotkey"] = value
+                self.app.save_config(updated)
+                self.config["hotkey"] = value
+            self.hotkey.setText(hotkey_display_name(value))
+            self.hotkey_feedback.setText(
+                self.t["hotkey_capture_saved"].format(hotkey=hotkey_display_name(value))
+            )
+            self.hotkey_feedback.show()
+            applied = True
+        except Exception:
+            logger.exception("Could not apply captured hotkey")
+            self.hotkey_feedback.setText(self.t["hotkey_capture_failed"])
+            self.hotkey_feedback.show()
+        finally:
+            if suspended and (not applied or self.onboarding) and listener and hasattr(listener, "resume_hotkey"):
+                try:
+                    listener.resume_hotkey()
+                except Exception:
+                    logger.exception("Could not resume the global hotkey after capture")
 
     def _build_general_tab(self) -> None:
         page = QWidget()
@@ -624,8 +806,7 @@ class SettingsDialog(QDialog):
         self.rec_lang.addItems(["Auto", "Русский (ru)", "English (en)"])
         self.rec_lang.setCurrentIndex({None: 0, "ru": 1, "en": 2}.get(self.config.get("language"), 0))
         audio_form.addRow(self.t["language"], self.rec_lang)
-        self.hotkey = QLineEdit(self.config.get("hotkey", "win+alt"))
-        audio_form.addRow(self.t["hotkey"], self.hotkey)
+        self._add_hotkey_control(audio_form)
         self.hotkey_mode = QComboBox()
         self.hotkey_mode.addItem(self.t["toggle"], "toggle")
         self.hotkey_mode.addItem(self.t["hold"], "hold")
@@ -742,13 +923,14 @@ class SettingsDialog(QDialog):
         if self.app.is_busy():
             QMessageBox.warning(self, APP_NAME, self.t["already_processing"])
             return
-        hotkey = self.hotkey.text().strip()
-        if not hotkey:
+        raw_hotkey = self.hotkey.text().strip()
+        if not raw_hotkey:
             QMessageBox.warning(self, APP_NAME, self.t["hotkey_empty"])
             return
         try:
-            from platform_integration import parse_hotkey
+            from platform_integration import normalize_hotkey, parse_hotkey
 
+            hotkey = normalize_hotkey(raw_hotkey)
             parse_hotkey(hotkey)
         except Exception:
             QMessageBox.warning(self, APP_NAME, self.t["hotkey_invalid"])
@@ -974,8 +1156,7 @@ class SettingsDialog(QDialog):
         test_mic = QPushButton(self.t["test_mic"])
         test_mic.clicked.connect(self.test_microphone)
         form.addRow("", test_mic)
-        self.hotkey = QLineEdit(self.config.get("hotkey", "win+alt"))
-        form.addRow(self.t["hotkey"], self.hotkey)
+        self._add_hotkey_control(form)
         self.hotkey_mode = QComboBox()
         self.hotkey_mode.addItem(self.t["toggle"], "toggle")
         self.hotkey_mode.addItem(self.t["hold"], "hold")
@@ -1278,7 +1459,8 @@ class WhisperTrayUi:
         )
         profile = self.t["privacy"] if self.state.config.get("profile") == "privacy" else self.t["speed"]
         self.profile_badge.setText(profile.split(" (")[0])
-        self.detail_label.setText(f"{self.t['hotkey']}: {self.state.config.get('hotkey', 'win+alt')}")
+        shortcut = hotkey_display_name(self.state.config.get("hotkey", "win+alt"))
+        self.detail_label.setText(f"{self.t['hotkey']}: {shortcut}")
         busy = self.status == ViewState.PROCESSING
         self.action_button.setEnabled(not busy)
         self.action_button.setText(self.t["stop"] if self.status == ViewState.RECORDING else self.t["record"])

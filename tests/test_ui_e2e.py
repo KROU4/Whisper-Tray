@@ -18,10 +18,19 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import QEvent, Qt  # noqa: E402
+from PySide6.QtGui import QKeyEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog, QPushButton  # noqa: E402
 
 from config_store import DEFAULT_CONFIG  # noqa: E402
-from ui import SettingsDialog, ViewState, WhisperTrayUi, should_show_main_window  # noqa: E402
+from ui import (  # noqa: E402
+    HotkeyCaptureDialog,
+    SettingsDialog,
+    ViewState,
+    WhisperTrayUi,
+    hotkey_from_key_event,
+    should_show_main_window,
+)
 
 
 class FakeState:
@@ -135,6 +144,49 @@ def test_settings_save_updates_privacy_profile_without_secret(view, qt_app, monk
     assert view.state.config["profile"] == "privacy"
     assert view.state.config["transcription_backend"] == "local"
     assert "groq_api_key" not in view.state.config
+
+
+def test_hotkey_capture_translates_ctrl_space_to_machine_format(qt_app):
+    event = QKeyEvent(QEvent.KeyPress, Qt.Key_Space, Qt.ControlModifier, " ")
+    assert hotkey_from_key_event(event) == "ctrl+space"
+
+
+def test_settings_change_button_saves_captured_hotkey_immediately(view, qt_app, monkeypatch):
+    monkeypatch.setattr("platform_integration.parse_hotkey", lambda value: value)
+
+    def capture(dialog):
+        dialog.hotkey = "ctrl+space"
+        return QDialog.Accepted
+
+    monkeypatch.setattr(HotkeyCaptureDialog, "exec", capture)
+    dialog = SettingsDialog(view)
+    dialog.change_hotkey_button.click()
+    qt_app.processEvents()
+
+    assert view.state.config["hotkey"] == "ctrl+space"
+    assert dialog.hotkey.text() == "Ctrl + Space"
+    assert dialog.hotkey_feedback.isVisible() is False  # Parent dialog is not shown in this test.
+    assert "Saved" in dialog.hotkey_feedback.text()
+
+
+def test_cancelled_hotkey_capture_restores_global_registration(view, monkeypatch):
+    calls = []
+
+    class Listener:
+        def suspend_hotkey(self):
+            calls.append("suspend")
+            return True
+
+        def resume_hotkey(self):
+            calls.append("resume")
+
+    view.state.hotkey_listener = Listener()
+    monkeypatch.setattr(HotkeyCaptureDialog, "exec", lambda _dialog: QDialog.Rejected)
+    dialog = SettingsDialog(view)
+    dialog.change_hotkey_button.click()
+
+    assert calls == ["suspend", "resume"]
+    assert view.state.config["hotkey"] == "win+alt"
 
 
 def test_completed_onboarding_opens_the_main_window(view, qt_app, monkeypatch):

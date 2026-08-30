@@ -210,6 +210,25 @@ class HotkeyListener:
                 self._current_hotkey = old_hotkey
             raise
 
+    def suspend_hotkey(self) -> bool:
+        """Pause the global shortcut while the settings dialog captures keys."""
+        with self.operation_lock:
+            if self._hotkey_registration is None:
+                return False
+            self._hotkey_registration.stop()
+            self._hotkey_registration = None
+            return True
+
+    def resume_hotkey(self) -> None:
+        """Restore the configured shortcut after a cancelled capture."""
+        with self.operation_lock:
+            if self._hotkey_registration is not None or self._shutdown.is_set():
+                return
+            hotkey = self._current_hotkey or self.state.config.get("hotkey", "win+alt")
+            mode = self.state.config.get("hotkey_mode", "toggle")
+            self._hotkey_registration = self._register_hotkey(hotkey, mode)
+            self._current_hotkey = hotkey
+
     def shutdown(self, timeout: float = 5.0):
         self._shutdown.set()
         self.state.is_recording.clear()

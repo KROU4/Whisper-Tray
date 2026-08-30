@@ -66,15 +66,32 @@ def _key_for_name(keyboard, name: str):
     raise PlatformIntegrationError("invalid_hotkey", f"Unsupported hotkey key: {name}")
 
 
+def normalize_hotkey(value: str) -> str:
+    """Return the stable, serialization-friendly shortcut representation."""
+    aliases = {
+        "control": "ctrl",
+        "option": "alt",
+        "windows": "win",
+        "super": "win",
+        "command": "cmd",
+        "return": "enter",
+        "escape": "esc",
+        "pgup": "page_up",
+        "pgdown": "page_down",
+    }
+    parts = [aliases.get(item.strip().lower(), item.strip().lower()) for item in value.split("+") if item.strip()]
+    if not parts:
+        raise PlatformIntegrationError("invalid_hotkey", "Choose a shortcut such as Ctrl+Space.")
+    return "+".join(parts)
+
+
 def parse_hotkey(value: str):
     """Return a canonical tuple consumed by :class:`GlobalHotkey`.
 
     Deliberately accepts the existing ``ctrl+space`` configuration format.
     """
     keyboard = _pynput_keyboard()
-    parts = [item.strip() for item in value.split("+") if item.strip()]
-    if not parts:
-        raise PlatformIntegrationError("invalid_hotkey", "Choose a shortcut such as Ctrl+Space.")
+    parts = normalize_hotkey(value).split("+")
     keys = tuple(_key_for_name(keyboard, part) for part in parts)
     if len(set(keys)) != len(keys):
         raise PlatformIntegrationError("invalid_hotkey", "Each shortcut key may be used only once.")

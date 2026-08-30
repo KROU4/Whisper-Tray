@@ -40,6 +40,12 @@ def test_parse_hotkey_is_cross_platform_and_rejects_invalid(monkeypatch):
         raise AssertionError("invalid shortcut was accepted")
 
 
+def test_normalize_hotkey_uses_stable_config_syntax():
+    assert platform_integration.normalize_hotkey(" Ctrl + Space ") == "ctrl+space"
+    assert platform_integration.normalize_hotkey("Control + Shift + K") == "ctrl+shift+k"
+    assert platform_integration.normalize_hotkey("Windows + Return") == "win+enter"
+
+
 def test_global_hotkey_hold_fires_once_and_stops_on_final_release(monkeypatch):
     monkeypatch.setattr(platform_integration, "_pynput_keyboard", fake_keyboard)
     fired, released = [], []

@@ -83,6 +83,16 @@ def test_explicit_local_fallback_consent_is_persisted(tmp_path):
     assert store.load()["allow_local_fallback"] is True
 
 
+def test_hotkey_is_serialized_in_machine_format(tmp_path):
+    target = tmp_path / "config.json"
+    store = ConfigStore(target, tmp_path / "missing.json", FakeCredentials())
+
+    store.save({"hotkey": "Control + Shift + K"})
+
+    assert store.load()["hotkey"] == "ctrl+shift+k"
+    assert json.loads(target.read_text(encoding="utf-8"))["hotkey"] == "ctrl+shift+k"
+
+
 def test_start_in_tray_preference_is_persisted(tmp_path):
     store = ConfigStore(tmp_path / "config.json", tmp_path / "legacy.json", FakeCredentials())
     store.save({"profile": "privacy", "start_in_tray": True})

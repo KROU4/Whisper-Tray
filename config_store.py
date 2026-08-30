@@ -106,6 +106,12 @@ class ConfigStore:
         config["groq_max_retries"] = min(max(int(config.get("groq_max_retries", 4)), 0), 8)
         if config.get("hotkey_mode") not in {"toggle", "hold"}:
             config["hotkey_mode"] = "toggle"
+        try:
+            from platform_integration import normalize_hotkey
+
+            config["hotkey"] = normalize_hotkey(str(config.get("hotkey", DEFAULT_CONFIG["hotkey"])))
+        except Exception:
+            config["hotkey"] = DEFAULT_CONFIG["hotkey"]
         history = config.get("history") if isinstance(config.get("history"), dict) else {}
         config["history"] = {
             "enabled": bool(history.get("enabled", False)),
