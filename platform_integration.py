@@ -169,12 +169,17 @@ class TextInserter:
     def __init__(self, keyboard_module=None):
         self._keyboard = keyboard_module
 
-    def insert(self, text: str) -> str:
+    def insert(self, text: str, cancelled=None) -> str:
         if not text:
             return "failed"
         try:
             keyboard = self._keyboard or _pynput_keyboard()
-            keyboard.Controller().type(text)
+            controller = keyboard.Controller()
+            for character in text:
+                if cancelled is not None and cancelled():
+                    self._copy_fallback(text)
+                    return "cancelled"
+                controller.type(character)
             return "inserted"
         except PlatformIntegrationError:
             return self._copy_fallback(text)

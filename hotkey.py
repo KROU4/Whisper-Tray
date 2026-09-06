@@ -60,6 +60,11 @@ class HotkeyListener:
     def on_hotkey(self):
         if self._shutdown.is_set():
             return
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None:
+            if not jobs.toggle_recording():
+                self._notify("WhisperTray", "Already processing the previous task")
+            return
         status = self.machine.status
         if status is DictationStatus.IDLE:
             self._start_recording()
@@ -72,6 +77,11 @@ class HotkeyListener:
             self._start_recording()
 
     def _start_recording(self):
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None:
+            if not jobs.toggle_recording():
+                self._notify("WhisperTray", "Already processing the previous task")
+            return
         with self.operation_lock:
             if self.state.is_file_transcribing.is_set():
                 self._notify("WhisperTray", "A file transcription is already running")
@@ -93,6 +103,10 @@ class HotkeyListener:
             self.state.tray_app.set_recording(True)
 
     def _stop_and_transcribe(self):
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None:
+            jobs.toggle_recording()
+            return
         if not self.machine.transition({DictationStatus.RECORDING}, DictationStatus.PROCESSING):
             return
         self.state.is_recording.clear()
@@ -231,6 +245,9 @@ class HotkeyListener:
 
     def shutdown(self, timeout: float = 5.0):
         self._shutdown.set()
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None:
+            jobs.shutdown()
         self.state.is_recording.clear()
         if self._recorder and self.machine.status is DictationStatus.RECORDING:
             self._recorder.stop()

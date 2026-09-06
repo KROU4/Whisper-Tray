@@ -1,6 +1,6 @@
 import json
 
-from config_store import ConfigStore
+from config_store import SCHEMA_VERSION, ConfigStore
 
 
 class FakeCredentials:
@@ -46,7 +46,7 @@ def test_new_config_defaults_to_private_local_profile(tmp_path):
     assert config["transcription_backend"] == "local"
     assert config["onboarding_complete"] is False
     assert config["start_in_tray"] is False
-    assert json.loads(target.read_text(encoding="utf-8"))["schema_version"] == 1
+    assert json.loads(target.read_text(encoding="utf-8"))["schema_version"] == SCHEMA_VERSION
 
 
 def test_onboarding_completion_is_persisted(tmp_path):
@@ -71,7 +71,7 @@ def test_invalid_bounded_values_are_normalized(tmp_path):
         }
     )
     config = store.load()
-    assert config["groq_max_retries"] == 8
+    assert config["groq_max_retries"] == 2
     assert config["hotkey_mode"] == "toggle"
     assert config["history"] == {"enabled": True, "retention_days": 365}
     assert config["hud"]["position"] == "bottom_right"

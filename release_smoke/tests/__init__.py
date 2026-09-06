@@ -1,0 +1,1 @@
+"""Briefcase packaged-test namespace."""

@@ -11,7 +11,7 @@ global shortcut, speak, and the app transcribes your speech and inserts the
 result into the active window. It can run locally or use Groq when you
 explicitly choose the cloud profile and provide your own API key.
 
-> Current release: [WhisperTray 1.1.4](https://github.com/KROU4/Whisper-Tray/releases/latest).
+> Current release: [WhisperTray 1.2.0](https://github.com/KROU4/Whisper-Tray/releases/latest).
 > Native installers are built automatically for Windows, macOS, and Linux.
 
 ## Features
@@ -24,6 +24,21 @@ explicitly choose the cloud profile and provide your own API key.
 - Independent launch-at-login and start-in-tray controls in Settings.
 - Transcribes individual audio and video files.
 - Optional local transcript history.
+- Cancels processing, retries failed dictations, and shows microphone level and
+  recording time.
+- Lets you browse and search history, copy or save results, and open a file
+  transcript's folder.
+
+After a dictation error, the temporary recording is kept locally for up to five
+minutes for the Retry action. It is removed on cancellation, the next recording,
+or exit. Successful recordings are removed immediately after processing. Text
+history remains disabled by default. File transcription produces a separate TXT
+file; if that save fails, the recognized text remains available in the window.
+
+Test microphone records five seconds for local playback. The UI shows model
+loading and transcription stages, and displays percentages only when progress is
+measurable. Groq requests use at most two retries, a 60-second per-request timeout,
+and a 180-second overall cloud-job budget.
 
 ## Profiles and privacy
 
@@ -152,7 +167,8 @@ generated from their matching `.in` files with `uv pip compile`.
 WhisperTray uses Briefcase for native packages, so each package must be built
 on its target OS. The `.github/workflows/release.yml` workflow runs for `v*`
 tags, tests the project on Windows, macOS, and Ubuntu, builds native packages,
-and creates a GitHub Release. A local Windows build uses:
+and creates a draft GitHub Release. The release is published only after the
+packages have been checked. A local Windows build uses:
 
 ```powershell
 python -m briefcase create windows --no-input

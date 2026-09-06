@@ -117,6 +117,24 @@ def test_text_inserter_uses_clipboard_when_input_permission_fails(monkeypatch):
     assert platform_integration.TextInserter(SimpleNamespace(Controller=BrokenController)).insert("text") == "clipboard"
 
 
+def test_text_inserter_cancellation_stops_typing_and_preserves_complete_text(monkeypatch):
+    typed = []
+    copied = []
+
+    class Controller:
+        def type(self, character):
+            typed.append(character)
+
+    monkeypatch.setitem(sys.modules, "pyperclip", SimpleNamespace(copy=copied.append))
+    result = platform_integration.TextInserter(SimpleNamespace(Controller=Controller)).insert(
+        "complete", cancelled=lambda: len(typed) >= 1
+    )
+
+    assert result == "cancelled"
+    assert typed == ["c"]
+    assert copied == ["complete"]
+
+
 def test_keyring_is_used_for_secure_cross_platform_storage(monkeypatch):
     values = {}
     fake_keyring = SimpleNamespace(

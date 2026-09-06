@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import tempfile
 import threading
+import time
 import wave
 from pathlib import Path
 
@@ -38,6 +39,11 @@ class AudioRecorder:
         self._path: Path | None = None
         self._frames = 0
         self._warned = False
+        self._limit_fired = False
+        self._started_at: float | None = None
+        self._level = 0.0
+        self._silent_seconds = 0.0
+        self._last_sound_at: float | None = None
         self._lock = threading.RLock()
 
     @property
@@ -58,16 +64,30 @@ class AudioRecorder:
             self._wav.writeframes(pcm.tobytes())
             self._frames += usable
             seconds = self._frames / SAMPLE_RATE
+            samples = np.asarray(indata[:usable, 0], dtype=np.float32)
+            rms = float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0
+            self._level = min(1.0, rms * 8.0)
+            if rms >= 0.01:
+                self._last_sound_at = time.monotonic()
+                self._silent_seconds = 0.0
+            elif self._last_sound_at is not None:
+                self._silent_seconds = max(0.0, time.monotonic() - self._last_sound_at)
+            else:
+                self._silent_seconds = seconds
             if not self._warned and seconds >= self.max_duration_seconds - WARNING_SECONDS:
                 self._warned = True
                 if self.on_warning:
                     self.on_warning("Recording limit will be reached in 30 seconds")
-            if self._frames >= self.max_duration_seconds * SAMPLE_RATE and self._stream is not None:
+            if (
+                self._frames >= self.max_duration_seconds * SAMPLE_RATE
+                and self._stream is not None
+                and not self._limit_fired
+            ):
                 # The callback must not close the stream; the state owner stops it safely.
                 logger.warning("Maximum recording duration reached")
+                self._limit_fired = True
                 if self.on_limit:
-                    callback, self.on_limit = self.on_limit, None
-                    callback()
+                    self.on_limit()
 
     def start(self):
         try:
@@ -77,7 +97,11 @@ class AudioRecorder:
                 file = tempfile.NamedTemporaryFile(prefix="whispertray-", suffix=".wav", delete=False)
                 file.close()
                 self._path = Path(file.name)
-                self._frames, self._warned = 0, False
+                self._frames, self._warned, self._limit_fired = 0, False, False
+                self._started_at = time.monotonic()
+                self._last_sound_at = self._started_at
+                self._level = 0.0
+                self._silent_seconds = 0.0
                 self._wav = wave.open(str(self._path), "wb")
                 self._wav.setnchannels(CHANNELS)
                 self._wav.setsampwidth(2)
@@ -104,6 +128,16 @@ class AudioRecorder:
 
     def stop(self):
         self._close_resources()
+
+    def recording_snapshot(self) -> dict[str, float]:
+        """Return inexpensive live metering values for the UI."""
+        with self._lock:
+            elapsed = self._frames / SAMPLE_RATE
+            return {
+                "elapsed": elapsed,
+                "level": self._level,
+                "silent_seconds": self._silent_seconds,
+            }
 
     def _close_resources(self):
         # Never wait for PortAudio while holding the callback's write lock.
@@ -139,6 +173,9 @@ class AudioRecorder:
                 except OSError:
                     logger.warning("Could not remove temporary recording")
                 self._path = None
+            self._started_at = None
+            self._level = 0.0
+            self._silent_seconds = 0.0
 
     def shutdown(self):
         self.cleanup()

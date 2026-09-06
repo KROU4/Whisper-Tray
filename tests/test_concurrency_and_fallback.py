@@ -44,6 +44,34 @@ def test_recorder_stop_does_not_hold_callback_lock():
     assert recorder._wav is None
 
 
+def test_recorder_limit_callback_is_rearmed_for_every_recording(monkeypatch):
+    limits = []
+    recorder = AudioRecorder(max_duration_seconds=1, on_limit=lambda: limits.append(True))
+
+    class FakeInputStream:
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("recorder.sd.InputStream", FakeInputStream)
+
+    for _ in range(2):
+        recorder.start()
+        recorder._callback(np.zeros((16000, 1), dtype=np.float32), 16000, None, None)
+        recorder.stop()
+
+    assert limits == [True, True]
+    recorder.cleanup()
+
+
 def test_dictation_is_rejected_while_file_job_is_active():
     tray = SimpleNamespace(notify=lambda *_: None, set_recording=lambda *_: None)
     state = SimpleNamespace(

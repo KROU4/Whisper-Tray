@@ -11,12 +11,24 @@ import logging
 import queue
 import sys
 import threading
+import time
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QLocale, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QCursor, QGuiApplication, QIcon, QKeyEvent, QPainter, QPen, QPixmap
+from PySide6.QtCore import QCoreApplication, QEvent, QLocale, QObject, QSize, Qt, QTimer, QUrl
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QCursor,
+    QDesktopServices,
+    QGuiApplication,
+    QIcon,
+    QKeyEvent,
+    QPainter,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -35,6 +47,8 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QSystemTrayIcon,
     QTabWidget,
@@ -168,6 +182,7 @@ def app_logo_path() -> Path:
 
 class ViewState(str, Enum):
     IDLE = "idle"
+    PREPARING = "preparing"
     RECORDING = "recording"
     PROCESSING = "processing"
     INSERTED = "inserted"
@@ -178,6 +193,7 @@ STRINGS = {
     "ru": {
         "title": "WhisperTray",
         "idle": "Готов к диктовке",
+        "preparing": "Подготавливаю распознавание…",
         "recording": "Идёт запись",
         "processing": "Распознаю речь…",
         "inserted": "Текст вставлен",
@@ -215,6 +231,7 @@ STRINGS = {
         "autostart_error": "Не удалось изменить автозапуск.",
         "diagnostics_info": "Безопасная техническая информация без ключей, аудио и текста диктовки.",
         "diagnostics_exported": "Диагностика экспортирована без секретов, аудио и текста диктовки.",
+        "diagnostics_failed": "Не удалось экспортировать диагностику.",
         "show_diagnostics": "Показать техническую информацию",
         "hide_diagnostics": "Скрыть техническую информацию",
         "hud": "Показывать индикатор",
@@ -247,6 +264,33 @@ STRINGS = {
         "saved": "Настройки сохранены.",
         "already_processing": "Уже обрабатываю запись",
         "file": "Транскрибировать файл…",
+        "copy": "Скопировать",
+        "save_as": "Сохранить как…",
+        "open_folder": "Открыть папку",
+        "history_view": "Открыть историю",
+        "history_search": "Поиск по истории",
+        "history_empty": "История пока пуста.",
+        "history_cleared": "Локальная история очищена.",
+        "cancel_job": "Отменить",
+        "retry": "Повторить",
+        "retry_saved_audio": "Запись временно сохранена. Повтор доступен в течение пяти минут.",
+        "silent_warning": "Не слышу речь — проверьте микрофон.",
+        "recording_details": "{elapsed} · уровень {level}%",
+        "mic_recording": "Записываю тест 5 секунд…",
+        "mic_ready": "Пробная запись готова. Нажмите «Прослушать».",
+        "mic_play": "Прослушать",
+        "mic_cancel": "Отменить тест",
+        "model_submitted": "Подготовка модели запущена.",
+        "model_ready": "Модель {model} готова.",
+        "model_failed": "Не удалось подготовить модель.",
+        "recognition_auto": "Автоматически",
+        "file_local_offer": "Этот файл нельзя отправить в Groq. Обработать его локально?",
+        "process_local": "Обработать локально",
+        "close": "Закрыть",
+        "file_result_saved": "Расшифровка сохранена: {path}",
+        "save_failed": "Текст распознан, но файл сохранить не удалось: {error}",
+        "controller_unavailable": "Контроллер диктовки недоступен.",
+        "generic_error": "Не удалось выполнить операцию.",
         "closed": "Приложение продолжает работать в системном трее.",
         "hotkey_empty": "Укажите горячую клавишу.",
         "hotkey_invalid": "Не удалось распознать это сочетание клавиш. Например: Ctrl+Space.",
@@ -256,11 +300,25 @@ STRINGS = {
         "key_enter": "Вставьте ключ Groq API, затем нажмите «Проверить ключ».",
         "key_testing": "Проверяю…",
         "key_valid": "Ключ Groq работает.",
-        "key_failed": "Не удалось проверить ключ Groq: {error}",
+        "key_failed": "Не удалось проверить ключ Groq. Проверьте ключ и подключение к интернету.",
+        "settings_save_failed": "Не удалось безопасно сохранить настройки. Предыдущие настройки не изменены.",
+        "config_recovered": (
+            "Файл настроек был повреждён. Его резервная копия сохранена рядом, "
+            "а WhisperTray запущен с безопасными настройками."
+        ),
+        "config_backup_failed": (
+            "Файл настроек повреждён и не был перезаписан: резервную копию создать не удалось. "
+            "WhisperTray временно использует безопасные настройки."
+        ),
+        "config_unavailable": (
+            "Файл настроек недоступен и не был перезаписан. "
+            "WhisperTray временно использует безопасные настройки."
+        ),
     },
     "en": {
         "title": "WhisperTray",
         "idle": "Ready for dictation",
+        "preparing": "Preparing transcription…",
         "recording": "Recording",
         "processing": "Transcribing…",
         "inserted": "Text inserted",
@@ -298,6 +356,7 @@ STRINGS = {
         "autostart_error": "Could not change launch-at-login settings.",
         "diagnostics_info": "Safe technical information without keys, audio, or dictated text.",
         "diagnostics_exported": "Diagnostics exported without secrets, audio, or dictated text.",
+        "diagnostics_failed": "Diagnostics could not be exported.",
         "show_diagnostics": "Show technical information",
         "hide_diagnostics": "Hide technical information",
         "hud": "Show status overlay",
@@ -330,6 +389,33 @@ STRINGS = {
         "saved": "Settings saved.",
         "already_processing": "Already processing a recording",
         "file": "Transcribe file…",
+        "copy": "Copy",
+        "save_as": "Save as…",
+        "open_folder": "Open folder",
+        "history_view": "View history",
+        "history_search": "Search history",
+        "history_empty": "History is empty.",
+        "history_cleared": "Local history was cleared.",
+        "cancel_job": "Cancel",
+        "retry": "Retry",
+        "retry_saved_audio": "The recording is temporarily saved. Retry is available for five minutes.",
+        "silent_warning": "No speech detected — check the microphone.",
+        "recording_details": "{elapsed} · level {level}%",
+        "mic_recording": "Recording a 5-second test…",
+        "mic_ready": "The test recording is ready. Select Play.",
+        "mic_play": "Play",
+        "mic_cancel": "Cancel test",
+        "model_submitted": "Model preparation started.",
+        "model_ready": "Model {model} is ready.",
+        "model_failed": "The model could not be prepared.",
+        "recognition_auto": "Automatic",
+        "file_local_offer": "This file cannot be sent to Groq. Process it locally?",
+        "process_local": "Process locally",
+        "close": "Close",
+        "file_result_saved": "Transcript saved: {path}",
+        "save_failed": "The text was transcribed, but the file could not be saved: {error}",
+        "controller_unavailable": "The dictation controller is unavailable.",
+        "generic_error": "The operation could not be completed.",
         "closed": "WhisperTray is still running in the system tray.",
         "hotkey_empty": "Enter a hotkey.",
         "hotkey_invalid": "This shortcut could not be recognized. Example: Ctrl+Space.",
@@ -339,7 +425,91 @@ STRINGS = {
         "key_enter": "Paste a Groq API key, then select Test key.",
         "key_testing": "Testing…",
         "key_valid": "The Groq key works.",
-        "key_failed": "The Groq key could not be verified: {error}",
+        "key_failed": "The Groq key could not be verified. Check the key and your internet connection.",
+        "settings_save_failed": "Settings could not be saved safely. The previous settings were not changed.",
+        "config_recovered": (
+            "The settings file was damaged. A backup copy was saved beside it, "
+            "and WhisperTray started with safe settings."
+        ),
+        "config_backup_failed": (
+            "The settings file is damaged and was not overwritten because a backup could not be created. "
+            "WhisperTray is temporarily using safe settings."
+        ),
+        "config_unavailable": (
+            "The settings file is unavailable and was not overwritten. "
+            "WhisperTray is temporarily using safe settings."
+        ),
+    },
+}
+
+ERROR_KEYS = {
+    "microphone_unavailable": {
+        "ru": "Микрофон недоступен. Выберите другое устройство или проверьте разрешения.",
+        "en": "The microphone is unavailable. Choose another device or check permissions.",
+    },
+    "empty_audio": {"ru": "Речь не обнаружена.", "en": "No speech was detected."},
+    "file_missing": {"ru": "Выбранный файл не найден.", "en": "The selected file was not found."},
+    "file_empty": {"ru": "Выбранный файл пуст.", "en": "The selected file is empty."},
+    "file_format": {
+        "ru": "Groq не поддерживает формат этого файла.",
+        "en": "Groq does not support this file format.",
+    },
+    "file_too_large": {
+        "ru": "Файл превышает допустимый для Groq размер.",
+        "en": "The file exceeds Groq's size limit.",
+    },
+    "cloud_auth": {
+        "ru": "Ключ Groq отклонён. Проверьте ключ в настройках.",
+        "en": "The Groq key was rejected. Check it in Settings.",
+    },
+    "cloud_timeout": {"ru": "Groq не ответил вовремя.", "en": "Groq did not respond in time."},
+    "timeout": {"ru": "Время ожидания операции истекло.", "en": "The operation timed out."},
+    "cloud_rate_limit": {
+        "ru": "Достигнут лимит запросов Groq. Повторите позже.",
+        "en": "The Groq request limit was reached. Try again later.",
+    },
+    "network": {"ru": "Нет соединения с Groq.", "en": "Could not connect to Groq."},
+    "cloud_failed": {"ru": "Groq не смог распознать запись.", "en": "Groq could not transcribe the audio."},
+    "local_model_missing": {
+        "ru": "Локальная модель недоступна. Подготовьте её в настройках.",
+        "en": "The local model is unavailable. Prepare it in Settings.",
+    },
+    "recording_failed": {"ru": "Не удалось завершить запись.", "en": "Could not finish the recording."},
+    "worker_start_failed": {
+        "ru": "Не удалось запустить распознавание.",
+        "en": "Could not start transcription.",
+    },
+    "transcription_failed": {
+        "ru": "Не удалось распознать запись.",
+        "en": "Could not transcribe the audio.",
+    },
+    "save_failed": {
+        "ru": "Текст распознан, но автоматически сохранить файл не удалось.",
+        "en": "The text was transcribed, but the file could not be saved automatically.",
+    },
+    "cancelled": {"ru": "Операция отменена.", "en": "The operation was cancelled."},
+    "clipboard_fallback": {
+        "ru": "Автовставка не удалась. Полный текст скопирован в буфер обмена.",
+        "en": "Automatic insertion failed. The complete text was copied to the clipboard.",
+    },
+}
+
+STAGE_LABELS = {
+    "downloading_model": {"ru": "Загружаю локальную модель…", "en": "Downloading local model…"},
+    "loading_model": {"ru": "Загружаю модель в память…", "en": "Loading model into memory…"},
+    "transcribing": {"ru": "Распознаю локально…", "en": "Transcribing locally…"},
+    "cloud_transcribing": {"ru": "Распознаю через Groq…", "en": "Transcribing with Groq…"},
+    "retry_wait": {"ru": "Повторяю временно неудачный запрос…", "en": "Retrying a temporary failure…"},
+    "reading_file": {"ru": "Читаю файл…", "en": "Reading file…"},
+    "ready": {"ru": "Готово.", "en": "Ready."},
+    "capturing": {"ru": "Идёт запись…", "en": "Recording…"},
+    "validating": {"ru": "Проверяю файл…", "en": "Checking file…"},
+    "loading": {"ru": "Подготавливаю модель…", "en": "Preparing model…"},
+    "retrying": {"ru": "Повторяю распознавание…", "en": "Retrying transcription…"},
+    "local_fallback": {"ru": "Переключаюсь на локальную модель…", "en": "Switching to the local model…"},
+    "limit_warning": {
+        "ru": "Достигнут предел записи. Начинаю распознавание…",
+        "en": "The recording limit was reached. Starting transcription…",
     },
 }
 
@@ -402,6 +572,11 @@ def ui_language(config: dict) -> str:
 def should_show_main_window(config: dict, *, force_show: bool = False) -> bool:
     """Keep startup behavior explicit and independently testable."""
     return force_show or not bool(config.get("start_in_tray", False))
+
+
+def available_dialog_size(widget: QWidget) -> QSize:
+    screen = widget.screen() or QGuiApplication.primaryScreen()
+    return screen.availableGeometry().size() if screen is not None else QSize(1280, 720)
 
 
 def input_devices() -> list[tuple[str, int | None]]:
@@ -640,10 +815,39 @@ class HotkeyCaptureDialog(QDialog):
         super().done(result)
 
 
+class MainWindowHotkeyFilter(QObject):
+    """Keep a global shortcut from also activating a focused main-window control."""
+
+    def __init__(self, app: "WhisperTrayUi"):
+        super().__init__(app.window)
+        self.app = app
+
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() not in {QEvent.KeyPress, QEvent.KeyRelease} or not isinstance(watched, QWidget):
+            return False
+        if watched.window() is not self.app.window:
+            return False
+        pressed = hotkey_from_key_event(event)
+        if not pressed:
+            return False
+        try:
+            from platform_integration import normalize_hotkey
+
+            configured = normalize_hotkey(str(self.app.state.config.get("hotkey", "win+alt")))
+        except Exception:
+            configured = str(self.app.state.config.get("hotkey", "win+alt")).lower()
+        if pressed != configured:
+            return False
+        event.accept()
+        return True
+
+
 class SettingsDialog(QDialog):
     def __init__(self, app: "WhisperTrayUi", onboarding: bool = False):
         super().__init__(app.window)
         self.app, self.onboarding = app, onboarding
+        self._dialog_generation = 0
+        self._dialog_closed = False
         self.config = deepcopy(app.state.config)
         self.lang = ui_language(self.config)
         self.t = STRINGS[self.lang]
@@ -652,15 +856,22 @@ class SettingsDialog(QDialog):
         if onboarding:
             self._build_onboarding(layout)
             return
-        self.setMinimumSize(660, 620)
+        self.setMinimumSize(560, 420)
         self._build_settings(layout)
+        self._fit_to_screen(660, 620)
 
     def _build_settings(self, layout: QVBoxLayout) -> None:
         self.tabs = QTabWidget()
-        layout.addWidget(self.tabs)
+        self.settings_scroll = QScrollArea()
+        self.settings_scroll.setFrameShape(QFrame.NoFrame)
+        self.settings_scroll.setWidgetResizable(True)
+        self.settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.settings_scroll.setWidget(self.tabs)
+        layout.addWidget(self.settings_scroll, 1)
         self._build_general_tab()
         self._build_appearance_tab()
         self._build_data_tab()
+        self.tabs.setMinimumHeight(self.tabs.sizeHint().height())
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Save).setText(self.t["save"])
         buttons.button(QDialogButtonBox.Cancel).setText(self.t["cancel"])
@@ -668,6 +879,16 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.update_profile_controls()
+
+    def _fit_to_screen(self, preferred_width: int, preferred_height: int) -> None:
+        available = available_dialog_size(self)
+        max_width = max(320, available.width() - 24)
+        max_height = max(320, available.height() - 24)
+        self.setMinimumSize(min(self.minimumWidth(), max_width), min(self.minimumHeight(), max_height))
+        width = max(self.minimumWidth(), min(preferred_width, max(320, available.width() - 48)))
+        height = max(self.minimumHeight(), min(preferred_height, max(320, available.height() - 48)))
+        self.setMaximumSize(max_width, max_height)
+        self.resize(width, height)
 
     def _section_title(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -718,7 +939,6 @@ class SettingsDialog(QDialog):
                 logger.exception("Could not suspend the global hotkey for capture")
 
         capture = HotkeyCaptureDialog(self, self.t)
-        applied = False
         try:
             if capture.exec() != QDialog.Accepted or not capture.hotkey:
                 return
@@ -735,13 +955,15 @@ class SettingsDialog(QDialog):
                 self.t["hotkey_capture_saved"].format(hotkey=hotkey_display_name(value))
             )
             self.hotkey_feedback.show()
-            applied = True
         except Exception:
             logger.exception("Could not apply captured hotkey")
             self.hotkey_feedback.setText(self.t["hotkey_capture_failed"])
             self.hotkey_feedback.show()
         finally:
-            if suspended and (not applied or self.onboarding) and listener and hasattr(listener, "resume_hotkey"):
+            # reload_hotkey() may already have installed the new registration;
+            # resume_hotkey() is deliberately idempotent and also covers the
+            # unchanged-hotkey, cancel, onboarding and failed-save paths.
+            if suspended and listener and hasattr(listener, "resume_hotkey"):
                 try:
                     listener.resume_hotkey()
                 except Exception:
@@ -788,6 +1010,7 @@ class SettingsDialog(QDialog):
         self.prepare_model_button = QPushButton(self.t["prepare_model"])
         self.prepare_model_button.clicked.connect(self.prepare_local_model)
         self.form.addRow("", self.prepare_model_button)
+        self._add_model_job_controls(self.form)
 
         layout.addWidget(self._section_title(self.t["microphone"]))
         audio_form = QFormLayout()
@@ -799,11 +1022,15 @@ class SettingsDialog(QDialog):
         wanted = self.config.get("device_index")
         self.mic.setCurrentIndex(next((i for i in range(self.mic.count()) if self.mic.itemData(i) == wanted), 0))
         audio_form.addRow(self.t["microphone"], self.mic)
-        test_mic = QPushButton(self.t["test_mic"])
-        test_mic.clicked.connect(self.test_microphone)
-        audio_form.addRow("", test_mic)
+        self.test_mic_button = QPushButton(self.t["test_mic"])
+        self.test_mic_button.clicked.connect(self.test_microphone)
+        audio_form.addRow("", self.test_mic_button)
+        self.play_mic_button = QPushButton(self.t["mic_play"])
+        self.play_mic_button.clicked.connect(self.play_microphone_test)
+        self.play_mic_button.hide()
+        audio_form.addRow("", self.play_mic_button)
         self.rec_lang = QComboBox()
-        self.rec_lang.addItems(["Auto", "Русский (ru)", "English (en)"])
+        self.rec_lang.addItems([self.t["recognition_auto"], "Русский (ru)", "English (en)"])
         self.rec_lang.setCurrentIndex({None: 0, "ru": 1, "en": 2}.get(self.config.get("language"), 0))
         audio_form.addRow(self.t["language"], self.rec_lang)
         self._add_hotkey_control(audio_form)
@@ -878,6 +1105,9 @@ class SettingsDialog(QDialog):
         clear_history = QPushButton(self.t["clear_history"])
         clear_history.clicked.connect(self.clear_history)
         history_layout.addRow("", clear_history)
+        view_history = QPushButton(self.t["history_view"])
+        view_history.clicked.connect(self.app.open_history)
+        history_layout.addRow("", view_history)
         layout.addWidget(history_group)
 
         diagnostics_group = QGroupBox(self.t["diagnostics"])
@@ -980,11 +1210,11 @@ class SettingsDialog(QDialog):
 
                 CredentialStore().set_groq_key(key)
             self.app.save_config(self.config)
-        except Exception as exc:
+        except Exception:
             if autostart_changed:
                 self._set_autostart(self.autostart_initial)
             logger.exception("Saving settings failed")
-            QMessageBox.critical(self, APP_NAME, str(exc))
+            QMessageBox.critical(self, APP_NAME, self.t["settings_save_failed"])
             return
         if hasattr(self, "autostart_initial"):
             self.autostart_initial = autostart_desired
@@ -1015,8 +1245,7 @@ class SettingsDialog(QDialog):
 
     def _build_onboarding(self, layout: QVBoxLayout) -> None:
         """Focused first-run flow; normal Settings stays comprehensive below."""
-        self.setMinimumSize(720, 650)
-        self.resize(720, 650)
+        self.setMinimumSize(560, 420)
         layout.setContentsMargins(28, 22, 28, 24)
         layout.setSpacing(9)
         self.ot = ONBOARDING_STRINGS[self.lang]
@@ -1045,11 +1274,18 @@ class SettingsDialog(QDialog):
         self.profile.addItem(self.t["speed"], "speed")
         self.profile.setCurrentIndex(0 if self.config.get("profile") == "privacy" else 1)
         self.pages = QStackedWidget()
-        layout.addWidget(self.pages)
+        self.onboarding_scroll = QScrollArea()
+        self.onboarding_scroll.setFrameShape(QFrame.NoFrame)
+        self.onboarding_scroll.setWidgetResizable(True)
+        self.onboarding_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.onboarding_scroll.setWidget(self.pages)
+        layout.addWidget(self.onboarding_scroll, 1)
         self._onboarding_profile_page()
         self._onboarding_backend_page()
         self._onboarding_audio_page()
+        self.pages.setMinimumHeight(max(self.pages.widget(index).sizeHint().height() for index in range(self.pages.count())))
         self.set_onboarding_step(0)
+        self._fit_to_screen(720, 650)
 
     def _onboarding_profile_page(self) -> None:
         page = QWidget()
@@ -1104,6 +1340,7 @@ class SettingsDialog(QDialog):
         self.prepare_model_button = QPushButton(self.t["prepare_model"])
         self.prepare_model_button.clicked.connect(self.prepare_local_model)
         local_layout.addRow("", self.prepare_model_button)
+        self._add_model_job_controls(local_layout)
         local_hint = self._hint(self.ot["local_model_hint"])
         local_layout.addRow("", local_hint)
         cloud = QGroupBox(self.t["speed"])
@@ -1153,9 +1390,13 @@ class SettingsDialog(QDialog):
             self.mic.addItem(name, index)
         self.mic.setCurrentIndex(next((i for i in range(self.mic.count()) if self.mic.itemData(i) == self.config.get("device_index")), 0))
         form.addRow(self.t["microphone"], self.mic)
-        test_mic = QPushButton(self.t["test_mic"])
-        test_mic.clicked.connect(self.test_microphone)
-        form.addRow("", test_mic)
+        self.test_mic_button = QPushButton(self.t["test_mic"])
+        self.test_mic_button.clicked.connect(self.test_microphone)
+        form.addRow("", self.test_mic_button)
+        self.play_mic_button = QPushButton(self.t["mic_play"])
+        self.play_mic_button.clicked.connect(self.play_microphone_test)
+        self.play_mic_button.hide()
+        form.addRow("", self.play_mic_button)
         self._add_hotkey_control(form)
         self.hotkey_mode = QComboBox()
         self.hotkey_mode.addItem(self.t["toggle"], "toggle")
@@ -1167,7 +1408,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(controls)
         # Preserve advanced settings on first run; these controls remain available in Settings.
         self.rec_lang = QComboBox()
-        self.rec_lang.addItems(["Auto", "Русский (ru)", "English (en)"])
+        self.rec_lang.addItems([self.t["recognition_auto"], "Русский (ru)", "English (en)"])
         self.rec_lang.setCurrentIndex({None: 0, "ru": 1, "en": 2}.get(self.config.get("language"), 0))
         self.ui_lang = QComboBox()
         self.ui_lang.addItem("Русский", "ru")
@@ -1206,6 +1447,46 @@ class SettingsDialog(QDialog):
         self.privacy_card.setChecked(profile == "privacy")
         self.speed_card.setChecked(profile == "speed")
 
+    def _add_model_job_controls(self, form: QFormLayout) -> None:
+        self.model_status = self._hint("")
+        self.model_status.hide()
+        form.addRow("", self.model_status)
+        self.model_progress = QProgressBar()
+        self.model_progress.setRange(0, 0)
+        self.model_progress.setTextVisible(False)
+        self.model_progress.hide()
+        form.addRow("", self.model_progress)
+        self.cancel_model_button = QPushButton(self.t["cancel_job"])
+        self.cancel_model_button.clicked.connect(self.app.cancel_job)
+        self.cancel_model_button.hide()
+        form.addRow("", self.cancel_model_button)
+        self._model_poll_timer = QTimer(self)
+        self._model_poll_timer.timeout.connect(self._poll_model_preparation)
+
+    def _poll_model_preparation(self) -> None:
+        active = self.app.current_job_kind == "model" and self.app.status in {
+            ViewState.PREPARING,
+            ViewState.PROCESSING,
+        }
+        if active:
+            self.model_status.setText(self.app.status_label.text())
+            self.model_status.show()
+            self.model_progress.setRange(self.app.task_progress.minimum(), self.app.task_progress.maximum())
+            if self.app.task_progress.maximum() > 0:
+                self.model_progress.setValue(self.app.task_progress.value())
+                self.model_progress.setTextVisible(True)
+            self.model_progress.show()
+            self.cancel_model_button.show()
+            return
+        self._model_poll_timer.stop()
+        self.prepare_model_button.setEnabled(True)
+        self.prepare_model_button.setText(self.t["prepare_model"])
+        self.model_progress.hide()
+        self.cancel_model_button.hide()
+        if self.app.current_job_kind == "model":
+            self.model_status.setText(self.app.status_label.text())
+            self.model_status.show()
+
     def set_onboarding_step(self, step: int) -> None:
         for widget in self.onboarding_brand_widgets:
             widget.setVisible(step == 0)
@@ -1216,35 +1497,105 @@ class SettingsDialog(QDialog):
             self.backend_pages.setCurrentIndex(1 if self.profile.currentData() == "speed" else 0)
 
     def test_microphone(self) -> None:
-        try:
-            import sounddevice as sd
+        if getattr(self, "_mic_test_cancel", None) is not None:
+            self._mic_test_cancel.set()
+            try:
+                import sounddevice as sd
 
-            sd.check_input_settings(device=self.mic.currentData(), channels=1, samplerate=16000, dtype="float32")
-            QMessageBox.information(self, APP_NAME, self.t["mic_available"])
-        except Exception as exc:
-            QMessageBox.warning(self, APP_NAME, self.t["mic_failed"].format(error=exc))
+                sd.stop()
+            except Exception:
+                logger.debug("Could not stop microphone test", exc_info=True)
+            return
+        self._mic_test_cancel = threading.Event()
+        self._mic_test_result: queue.Queue = queue.Queue()
+        generation = self._dialog_generation
+        self.test_mic_button.setText(self.t["mic_cancel"])
+        self.play_mic_button.hide()
+        device = self.mic.currentData()
+
+        def record_test():
+            try:
+                import sounddevice as sd
+
+                sd.check_input_settings(device=device, channels=1, samplerate=16000, dtype="float32")
+                recording = sd.rec(5 * 16000, samplerate=16000, channels=1, dtype="float32", device=device)
+                sd.wait()
+                if self._mic_test_cancel.is_set():
+                    self._mic_test_result.put((False, None, None))
+                else:
+                    self._mic_test_result.put((True, recording.copy(), self.t["mic_ready"]))
+            except Exception as exc:
+                self._mic_test_result.put((False, None, self.t["mic_failed"].format(error=exc)))
+
+        threading.Thread(target=record_test, daemon=True, name="MicrophoneTest").start()
+
+        def poll():
+            if self._dialog_closed or generation != self._dialog_generation:
+                return
+            try:
+                ok, recording, message = self._mic_test_result.get_nowait()
+            except queue.Empty:
+                QTimer.singleShot(100, poll)
+                return
+            self._mic_test_cancel = None
+            self.test_mic_button.setText(self.t["test_mic"])
+            if ok:
+                self._mic_test_audio = recording
+                self.play_mic_button.show()
+                QMessageBox.information(self, APP_NAME, message)
+            elif message:
+                QMessageBox.warning(self, APP_NAME, message)
+
+        QTimer.singleShot(100, poll)
+
+    def play_microphone_test(self) -> None:
+        recording = getattr(self, "_mic_test_audio", None)
+        if recording is None:
+            return
+
+        def play():
+            try:
+                import sounddevice as sd
+
+                sd.play(recording, samplerate=16000)
+                sd.wait()
+            except Exception:
+                logger.exception("Could not play microphone test")
+
+        threading.Thread(target=play, daemon=True, name="MicrophoneTestPlayback").start()
 
     def test_groq_key(self) -> None:
         key = self.groq_key.text().strip()
         if not key:
-            QMessageBox.warning(self, APP_NAME, self.t["key_enter"])
-            return
+            try:
+                from credentials import CredentialStore
+
+                key = CredentialStore().get_groq_key() or ""
+            except Exception:
+                key = ""
+            if not key:
+                QMessageBox.warning(self, APP_NAME, self.t["key_enter"])
+                return
         self.test_key_button.setEnabled(False)
         self.test_key_button.setText(self.t["key_testing"])
         self._key_result: queue.Queue = queue.Queue()
+        self._key_test_generation = getattr(self, "_key_test_generation", 0) + 1
+        generation = self._key_test_generation
 
         def check():
             try:
                 from groq import Groq
 
-                Groq(api_key=key).models.list()
+                Groq(api_key=key, timeout=60.0, max_retries=0).models.list()
                 self._key_result.put((True, self.t["key_valid"]))
-            except Exception as exc:
-                self._key_result.put((False, self.t["key_failed"].format(error=exc)))
+            except Exception:
+                self._key_result.put((False, self.t["key_failed"]))
 
         threading.Thread(target=check, daemon=True, name="GroqKeyTest").start()
 
         def poll():
+            if generation != getattr(self, "_key_test_generation", 0) or not self.isVisible():
+                return
             try:
                 ok, message = self._key_result.get_nowait()
             except queue.Empty:
@@ -1257,9 +1608,27 @@ class SettingsDialog(QDialog):
         QTimer.singleShot(100, poll)
 
     def prepare_local_model(self) -> None:
+        jobs = getattr(self.app.state, "jobs", None)
+        if jobs is not None and hasattr(jobs, "prepare_model"):
+            if jobs.prepare_model(self.model.currentData()):
+                self.app.current_job_kind = "model"
+                self.app.current_job_id = getattr(jobs, "current_job_id", None)
+                self.prepare_model_button.setEnabled(False)
+                self.prepare_model_button.setText(self.t["preparing"])
+                self.model_status.setText(self.t["model_submitted"])
+                self.model_status.show()
+                self.model_progress.setRange(0, 0)
+                self.model_progress.show()
+                self.cancel_model_button.show()
+                self._model_poll_timer.start(100)
+                self.app.set_state(ViewState.PREPARING, self.t["model_submitted"])
+            else:
+                QMessageBox.information(self, APP_NAME, self.t["already_processing"])
+            return
         self.prepare_model_button.setEnabled(False)
-        self.prepare_model_button.setText("Preparing model…")
+        self.prepare_model_button.setText(self.t["preparing"])
         result: queue.Queue = queue.Queue()
+        generation = self._dialog_generation
         model_name = self.model.currentData()
 
         def prepare():
@@ -1270,13 +1639,15 @@ class SettingsDialog(QDialog):
                 config["profile"] = "privacy"
                 config["transcription_backend"] = "local"
                 Transcriber(model_name, config)._ensure_model()
-                result.put((True, f"Model {model_name} is ready."))
-            except Exception as exc:
-                result.put((False, f"Could not prepare model: {exc}"))
+                result.put((True, self.t["model_ready"].format(model=model_name)))
+            except Exception:
+                result.put((False, self.t["model_failed"]))
 
         threading.Thread(target=prepare, daemon=True, name="LocalModelPrepare").start()
 
         def poll():
+            if self._dialog_closed or generation != self._dialog_generation:
+                return
             try:
                 ok, message = result.get_nowait()
             except queue.Empty:
@@ -1288,11 +1659,60 @@ class SettingsDialog(QDialog):
 
         QTimer.singleShot(200, poll)
 
+    def _stop_audio_preview(self) -> None:
+        self._dialog_closed = True
+        self._dialog_generation += 1
+        self._key_test_generation = getattr(self, "_key_test_generation", 0) + 1
+        cancel = getattr(self, "_mic_test_cancel", None)
+        if cancel is not None:
+            cancel.set()
+            try:
+                import sounddevice as sd
+
+                sd.stop()
+            except Exception:
+                logger.debug("Could not stop audio preview while closing settings", exc_info=True)
+        model_timer = getattr(self, "_model_poll_timer", None)
+        if model_timer is not None:
+            model_timer.stop()
+
+    def done(self, result: int) -> None:
+        self._stop_audio_preview()
+        super().done(result)
+
+    def closeEvent(self, event) -> None:
+        self._stop_audio_preview()
+        super().closeEvent(event)
+
     def clear_history(self) -> None:
         from history_store import HistoryStore
 
-        HistoryStore().clear()
-        QMessageBox.information(self, APP_NAME, "Local transcript history was cleared.")
+        result: queue.Queue = queue.Queue()
+        generation = self._dialog_generation
+
+        def clear():
+            try:
+                HistoryStore().clear()
+                result.put(None)
+            except Exception as exc:
+                result.put(exc)
+
+        self.app._start_history_task(clear, "HistoryClear")
+
+        def poll():
+            if self._dialog_closed or generation != self._dialog_generation:
+                return
+            try:
+                error = result.get_nowait()
+            except queue.Empty:
+                QTimer.singleShot(50, poll)
+                return
+            if error is None:
+                QMessageBox.information(self, APP_NAME, self.t["history_cleared"])
+            else:
+                QMessageBox.warning(self, APP_NAME, self.t["generic_error"])
+
+        QTimer.singleShot(50, poll)
 
     def export_diagnostics(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, APP_NAME, "whispertray-diagnostics.json", "JSON (*.json)")
@@ -1303,9 +1723,82 @@ class SettingsDialog(QDialog):
 
             export_diagnostics(path, self.app.state.config)
             QMessageBox.information(self, APP_NAME, self.t["diagnostics_exported"])
-        except Exception as exc:
+        except Exception:
             logger.exception("Diagnostics export failed")
-            QMessageBox.critical(self, APP_NAME, str(exc))
+            QMessageBox.critical(self, APP_NAME, self.t["diagnostics_failed"])
+
+
+class HistoryDialog(QDialog):
+    """Read-only, searchable view over the optional local transcript history."""
+
+    def __init__(self, parent: QWidget, strings: dict[str, str], task_runner=None):
+        super().__init__(parent)
+        self.t = strings
+        self._task_runner = task_runner
+        self.setWindowTitle(self.t["history_section"])
+        self.setMinimumSize(620, 440)
+        layout = QVBoxLayout(self)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText(self.t["history_search"])
+        self.search.setAccessibleName(self.t["history_search"])
+        layout.addWidget(self.search)
+        self.results = QPlainTextEdit()
+        self.results.setReadOnly(True)
+        self.results.setPlaceholderText(self.t["history_empty"])
+        layout.addWidget(self.results, 1)
+        close = QDialogButtonBox(QDialogButtonBox.Close)
+        close.button(QDialogButtonBox.Close).setText(self.t["close"])
+        close.rejected.connect(self.reject)
+        layout.addWidget(close)
+        self._result_queue: queue.Queue = queue.Queue()
+        self._request_id = 0
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.timeout.connect(self.refresh)
+        self._poll_timer = QTimer(self)
+        self._poll_timer.timeout.connect(self._poll_results)
+        self._poll_timer.start(50)
+        self.search.textChanged.connect(lambda: self._search_timer.start(180))
+        self.refresh()
+
+    def refresh(self) -> None:
+        from history_store import HistoryStore
+
+        self._request_id += 1
+        request_id = self._request_id
+        query = self.search.text()
+
+        def load():
+            try:
+                self._result_queue.put((request_id, HistoryStore().entries(query), None))
+            except Exception as exc:
+                self._result_queue.put((request_id, [], exc))
+
+        if self._task_runner is not None:
+            self._task_runner(load, "HistoryLoad")
+        else:
+            threading.Thread(target=load, daemon=True, name="HistoryLoad").start()
+
+    def _poll_results(self) -> None:
+        try:
+            while True:
+                request_id, entries, error = self._result_queue.get_nowait()
+                if request_id != self._request_id:
+                    continue
+                if error is not None:
+                    self.results.setPlainText(self.t["generic_error"])
+                    continue
+                blocks = []
+                for entry in entries:
+                    stamp = entry["created_at"].replace("T", " ").replace("+00:00", " UTC")
+                    blocks.append(f"{stamp}\n{entry['text']}")
+                self.results.setPlainText("\n\n".join(blocks))
+        except queue.Empty:
+            pass
+
+    def done(self, result: int) -> None:
+        self._poll_timer.stop()
+        super().done(result)
 
 
 class WhisperTrayUi:
@@ -1316,11 +1809,23 @@ class WhisperTrayUi:
         self.lang = ui_language(state.config)
         self.t = STRINGS[self.lang]
         self.status = ViewState.IDLE
+        self.current_job_id = None
+        self.current_job_kind: str | None = None
+        self.last_output_path: Path | None = None
+        self._retry_available = False
+        self._last_error_code: str | None = None
+        self._recovery_notice_shown = False
+        self._history_threads: set[threading.Thread] = set()
+        self._history_threads_lock = threading.Lock()
         self.window = QMainWindow()
         self.window.setWindowTitle(APP_NAME)
         self.window.setStyleSheet(APP_STYLE)
         self.window.setMinimumWidth(440)
         self.window.closeEvent = self.close_to_tray
+        self._hotkey_collision_filter = MainWindowHotkeyFilter(self)
+        qt_app = QApplication.instance()
+        if qt_app is not None:
+            qt_app.installEventFilter(self._hotkey_collision_filter)
         self.build_window()
         self.hud = StatusHud(state.config, self.lang)
         self.tray = QSystemTrayIcon(self.icon(), self.window)
@@ -1331,6 +1836,10 @@ class WhisperTrayUi:
         self.poller = QTimer()
         self.poller.timeout.connect(self.drain_worker_events)
         self.poller.start(50)
+        self._history_timer = QTimer()
+        self._history_timer.timeout.connect(self.prune_history_async)
+        self._history_timer.start(15 * 60 * 1000)
+        self.prune_history_async()
 
     def build_window(self) -> None:
         root = QWidget()
@@ -1371,10 +1880,25 @@ class WhisperTrayUi:
         status_copy.setSpacing(3)
         self.status_label = QLabel()
         self.status_label.setObjectName("statusLabel")
+        self.status_label.setWordWrap(True)
+        self.status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         status_copy.addWidget(self.status_label)
         self.detail_label = QLabel()
         self.detail_label.setObjectName("detailLabel")
+        self.detail_label.setWordWrap(True)
+        self.detail_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         status_copy.addWidget(self.detail_label)
+        self.task_progress = QProgressBar()
+        self.task_progress.setRange(0, 0)
+        self.task_progress.setTextVisible(False)
+        self.task_progress.hide()
+        status_copy.addWidget(self.task_progress)
+        self.audio_level = QProgressBar()
+        self.audio_level.setRange(0, 100)
+        self.audio_level.setTextVisible(False)
+        self.audio_level.setAccessibleName(self.t["microphone"])
+        self.audio_level.hide()
+        status_copy.addWidget(self.audio_level)
         status_layout.addLayout(status_copy, 1)
         layout.addWidget(status_card)
 
@@ -1392,6 +1916,22 @@ class WhisperTrayUi:
         self.last_result.setMinimumHeight(104)
         self.last_result.setMaximumHeight(124)
         result_layout.addWidget(self.last_result)
+        result_actions = QHBoxLayout()
+        result_actions.setContentsMargins(8, 0, 8, 8)
+        self.copy_button = QPushButton(self.t["copy"])
+        self.copy_button.clicked.connect(self.copy_result)
+        self.copy_button.setEnabled(False)
+        result_actions.addWidget(self.copy_button)
+        self.save_button = QPushButton(self.t["save_as"])
+        self.save_button.clicked.connect(self.save_result_as)
+        self.save_button.setEnabled(False)
+        result_actions.addWidget(self.save_button)
+        self.open_folder_button = QPushButton(self.t["open_folder"])
+        self.open_folder_button.clicked.connect(self.open_result_folder)
+        self.open_folder_button.hide()
+        result_actions.addWidget(self.open_folder_button)
+        result_actions.addStretch(1)
+        result_layout.addLayout(result_actions)
         layout.addWidget(result_card)
 
         self.action_button = QPushButton()
@@ -1399,12 +1939,29 @@ class WhisperTrayUi:
         self.action_button.clicked.connect(self.toggle_recording)
         layout.addWidget(self.action_button)
 
+        job_actions = QHBoxLayout()
+        self.cancel_job_button = QPushButton(self.t["cancel_job"])
+        self.cancel_job_button.clicked.connect(self.cancel_job)
+        self.cancel_job_button.hide()
+        job_actions.addWidget(self.cancel_job_button)
+        self.retry_button = QPushButton(self.t["retry"])
+        self.retry_button.clicked.connect(self.retry_job)
+        self.retry_button.hide()
+        job_actions.addWidget(self.retry_button)
+        job_actions.addStretch(1)
+        layout.addLayout(job_actions)
+
         secondary = QHBoxLayout()
         secondary.setSpacing(10)
-        file_button = QPushButton(self.t["file"])
-        file_button.setObjectName("secondaryAction")
-        file_button.clicked.connect(self.transcribe_file)
-        secondary.addWidget(file_button)
+        self.file_button = QPushButton(self.t["file"])
+        self.file_button.setObjectName("secondaryAction")
+        self.file_button.clicked.connect(self.transcribe_file)
+        secondary.addWidget(self.file_button)
+        self.history_button = QPushButton(self.t["history_view"])
+        self.history_button.setObjectName("secondaryAction")
+        self.history_button.clicked.connect(self.open_history)
+        self.history_button.setVisible(self.state.config.get("history", {}).get("enabled", False))
+        secondary.addWidget(self.history_button)
         settings = QPushButton(self.t["settings"])
         settings.setObjectName("secondaryAction")
         settings.clicked.connect(self.open_settings)
@@ -1461,9 +2018,16 @@ class WhisperTrayUi:
         self.profile_badge.setText(profile.split(" (")[0])
         shortcut = hotkey_display_name(self.state.config.get("hotkey", "win+alt"))
         self.detail_label.setText(f"{self.t['hotkey']}: {shortcut}")
-        busy = self.status == ViewState.PROCESSING
+        busy = self.status in {ViewState.PREPARING, ViewState.PROCESSING}
+        cancellable = self.status in {ViewState.PREPARING, ViewState.RECORDING, ViewState.PROCESSING} and getattr(
+            self.state, "jobs", None
+        ) is not None
         self.action_button.setEnabled(not busy)
         self.action_button.setText(self.t["stop"] if self.status == ViewState.RECORDING else self.t["record"])
+        self.cancel_job_button.setVisible(cancellable)
+        self.retry_button.setVisible(self.status == ViewState.ERROR and self._retry_available)
+        self.task_progress.setVisible(busy)
+        self.audio_level.setVisible(self.status == ViewState.RECORDING)
         self.tray_action.setText(self.action_button.text())
         self.tray.setIcon(self.icon())
         self.tray.setToolTip(f"{APP_NAME} — {text}")
@@ -1472,7 +2036,7 @@ class WhisperTrayUi:
     def set_state(self, status: ViewState, message: str | None = None) -> None:
         self.status = status
         self.render_status(message)
-        if status in {ViewState.INSERTED, ViewState.ERROR}:
+        if status is ViewState.INSERTED:
             QTimer.singleShot(2500, lambda: self.set_state(ViewState.IDLE) if self.status == status else None)
 
     # Compatibility API consumed by hotkey.py and file_transcriber.py.  Those
@@ -1498,12 +2062,7 @@ class WhisperTrayUi:
                         QSystemTrayIcon.Warning if status == ViewState.ERROR else QSystemTrayIcon.Information,
                     )
                 elif event[0] == "transcript":
-                    self.last_result.setPlainText(event[1])
-                    history = self.state.config.get("history", {})
-                    if history.get("enabled", False):
-                        from history_store import HistoryStore
-
-                        HistoryStore().append(event[1], history.get("retention_days", 30))
+                    self._set_result(event[1])
         except queue.Empty:
             pass
         events = getattr(self.state, "tk_queue", None)
@@ -1513,7 +2072,9 @@ class WhisperTrayUi:
             while True:
                 event = events.get_nowait()
                 command = event[0] if event else ""
-                if command == "show_hud":
+                if command == "job" and len(event) > 1 and isinstance(event[1], dict):
+                    self._handle_job_event(event[1])
+                elif command == "show_hud":
                     self.set_state(ViewState.RECORDING)
                 elif command == "processing":
                     self.set_state(ViewState.PROCESSING)
@@ -1533,8 +2094,108 @@ class WhisperTrayUi:
                     self.transcribe_file()
         except queue.Empty:
             pass
+        self._refresh_recording_snapshot()
+
+    def _handle_job_event(self, payload: dict) -> None:
+        job_id = payload.get("job_id")
+        status = payload.get("status", "")
+        jobs = getattr(self.state, "jobs", None)
+        controller_job_id = getattr(jobs, "current_job_id", None)
+        if job_id is not None:
+            if controller_job_id is not None and controller_job_id != job_id:
+                return
+            self.current_job_id = job_id
+        self.current_job_kind = payload.get("kind") or self.current_job_kind
+
+        stage = payload.get("stage")
+        message = STAGE_LABELS.get(stage, {}).get(self.lang) if stage else None
+        progress = payload.get("progress")
+        if isinstance(progress, (int, float)):
+            self.task_progress.setRange(0, 100)
+            self.task_progress.setValue(max(0, min(100, int(progress))))
+            self.task_progress.setTextVisible(True)
+        elif status in {"preparing", "processing"}:
+            self.task_progress.setRange(0, 0)
+            self.task_progress.setTextVisible(False)
+
+        if payload.get("text") is not None:
+            self._set_result(str(payload["text"]), payload.get("output_path"))
+        elif payload.get("output_path"):
+            self.last_output_path = Path(payload["output_path"])
+            self.open_folder_button.show()
+
+        if status == "preparing":
+            self._retry_available = False
+            self.set_state(ViewState.PREPARING, message)
+        elif status == "recording":
+            self._retry_available = False
+            self.set_state(ViewState.RECORDING, message)
+        elif status == "processing":
+            self._retry_available = False
+            self.set_state(ViewState.PROCESSING, message)
+        elif status == "inserted":
+            self._retry_available = False
+            self.set_state(ViewState.INSERTED, message)
+        elif status in {"idle", "cancelled"}:
+            self._retry_available = False
+            self.set_state(ViewState.IDLE, ERROR_KEYS["cancelled"][self.lang] if status == "cancelled" else message)
+        elif status == "error":
+            code = str(payload.get("code") or "")
+            self._last_error_code = code
+            self._retry_available = bool(payload.get("retry_available"))
+            safe_message = ERROR_KEYS.get(code, {}).get(self.lang) or self.t["generic_error"]
+            if self._retry_available:
+                safe_message = f"{safe_message} {self.t['retry_saved_audio']}"
+            self.set_state(ViewState.ERROR, safe_message)
+
+    def _refresh_recording_snapshot(self) -> None:
+        if self.status != ViewState.RECORDING:
+            return
+        jobs = getattr(self.state, "jobs", None)
+        snapshot_fn = getattr(jobs, "recording_snapshot", None)
+        if not callable(snapshot_fn):
+            return
+        try:
+            snapshot = snapshot_fn() or {}
+            elapsed = max(0.0, float(snapshot.get("elapsed", 0.0)))
+            level = max(0, min(100, int(float(snapshot.get("level", 0.0)) * 100)))
+            silent = max(0.0, float(snapshot.get("silent_seconds", 0.0)))
+        except (TypeError, ValueError, RuntimeError):
+            return
+        minutes, seconds = divmod(int(elapsed), 60)
+        self.audio_level.setValue(level)
+        details = self.t["recording_details"].format(elapsed=f"{minutes:02d}:{seconds:02d}", level=level)
+        if silent >= 5:
+            details = f"{details} · {self.t['silent_warning']}"
+        self.detail_label.setText(details)
+
+    def _set_result(self, text: str, output_path: str | Path | None = None) -> None:
+        self.last_result.setPlainText(text)
+        self.copy_button.setEnabled(bool(text))
+        self.save_button.setEnabled(bool(text))
+        if output_path:
+            self.last_output_path = Path(output_path)
+        self.open_folder_button.setVisible(self.last_output_path is not None)
+        history = self.state.config.get("history", {})
+        if history.get("enabled", False) and text.strip():
+            retention = history.get("retention_days", 30)
+
+            def append_history():
+                try:
+                    from history_store import HistoryStore
+
+                    HistoryStore().append(text, retention)
+                except Exception:
+                    logger.exception("Could not append transcript history")
+
+            self._start_history_task(append_history, "HistoryAppend")
 
     def toggle_recording(self) -> None:
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None and hasattr(jobs, "toggle_recording"):
+            if not jobs.toggle_recording():
+                self.notify(APP_NAME, self.t["already_processing"])
+            return
         listener = getattr(self.state, "hotkey_listener", None)
         if self.status == ViewState.PROCESSING:
             self.notify(APP_NAME, self.t["already_processing"])
@@ -1542,11 +2203,12 @@ class WhisperTrayUi:
         if listener and hasattr(listener, "on_hotkey"):
             threading.Thread(target=listener.on_hotkey, daemon=True, name="UiDictationAction").start()
         else:
-            self.notify(self.t["error"], "Dictation controller is unavailable.")
+            self.notify(self.t["error"], self.t["controller_unavailable"])
 
     def transcribe_file(self) -> None:
+        jobs = getattr(self.state, "jobs", None)
         worker = getattr(self.state, "file_transcriber", None)
-        if worker is None:
+        if jobs is None and worker is None:
             return
         path, _ = QFileDialog.getOpenFileName(
             self.window,
@@ -1555,6 +2217,32 @@ class WhisperTrayUi:
             "Audio/video (*.mp3 *.wav *.m4a *.ogg *.flac *.aac *.wma *.opus *.mp4 *.mkv *.webm *.avi *.mov)",
         )
         if not path:
+            return
+        use_local = False
+        if self.state.config.get("profile") == "speed":
+            try:
+                from transcriber import validate_cloud_file
+
+                validate_cloud_file(path)
+            except Exception as exc:
+                code = getattr(exc, "code", "")
+                if code not in {"file_format", "file_too_large"}:
+                    self._retry_available = False
+                    self.set_state(ViewState.ERROR, ERROR_KEYS.get(code, {}).get(self.lang) or self.t["generic_error"])
+                    return
+                prompt = QMessageBox(self.window)
+                prompt.setWindowTitle(APP_NAME)
+                prompt.setIcon(QMessageBox.Question)
+                prompt.setText(f"{ERROR_KEYS[code][self.lang]}\n\n{self.t['file_local_offer']}")
+                local_button = prompt.addButton(self.t["process_local"], QMessageBox.AcceptRole)
+                prompt.addButton(self.t["cancel"], QMessageBox.RejectRole)
+                prompt.exec()
+                if prompt.clickedButton() is not local_button:
+                    return
+                use_local = True
+        if jobs is not None and hasattr(jobs, "submit_file"):
+            if not jobs.submit_file(path, use_local=use_local):
+                self.notify(APP_NAME, self.t["already_processing"])
             return
         if self.state.is_recording.is_set() or self.state.is_file_transcribing.is_set():
             self.notify(APP_NAME, self.t["already_processing"])
@@ -1568,6 +2256,76 @@ class WhisperTrayUi:
             threading.Thread(
                 target=worker._transcribe_in_background, args=(path,), daemon=True, name="FileTranscribeThread"
             ).start()
+
+    def cancel_job(self) -> None:
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None and hasattr(jobs, "cancel"):
+            jobs.cancel()
+
+    def retry_job(self) -> None:
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None and hasattr(jobs, "retry") and jobs.retry():
+            self._retry_available = False
+            self.retry_button.hide()
+
+    def copy_result(self) -> None:
+        text = self.last_result.toPlainText()
+        if text:
+            QGuiApplication.clipboard().setText(text)
+
+    def save_result_as(self) -> None:
+        text = self.last_result.toPlainText()
+        if not text:
+            return
+        suggested = str(self.last_output_path or Path("whispertray-transcript.txt"))
+        path, _ = QFileDialog.getSaveFileName(self.window, self.t["save_as"], suggested, "Text (*.txt)")
+        if not path:
+            return
+        try:
+            Path(path).write_text(text, encoding="utf-8")
+            self.last_output_path = Path(path)
+            self.open_folder_button.show()
+            self.tray.showMessage(APP_NAME, self.t["file_result_saved"].format(path=path))
+        except OSError as exc:
+            self.set_state(ViewState.ERROR, self.t["save_failed"].format(error=exc))
+
+    def open_result_folder(self) -> None:
+        if self.last_output_path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.last_output_path.parent.resolve())))
+
+    def open_history(self) -> None:
+        if not self.state.config.get("history", {}).get("enabled", False):
+            return
+        HistoryDialog(self.window, self.t, self._start_history_task).exec()
+
+    def prune_history_async(self) -> None:
+        history = self.state.config.get("history", {})
+        if not history.get("enabled", False):
+            return
+        retention = history.get("retention_days", 30)
+
+        def prune():
+            try:
+                from history_store import HistoryStore
+
+                HistoryStore().prune(retention)
+            except Exception:
+                logger.exception("Could not prune transcript history")
+
+        self._start_history_task(prune, "HistoryPrune")
+
+    def _start_history_task(self, operation, name: str) -> None:
+        def run():
+            try:
+                operation()
+            finally:
+                with self._history_threads_lock:
+                    self._history_threads.discard(threading.current_thread())
+
+        worker = threading.Thread(target=run, daemon=True, name=name)
+        with self._history_threads_lock:
+            self._history_threads.add(worker)
+        worker.start()
 
     def open_settings(self) -> None:
         if self.is_busy():
@@ -1642,9 +2400,16 @@ class WhisperTrayUi:
         if language_changed:
             self.build_window()
             self.build_tray()
+        elif hasattr(self, "history_button"):
+            self.history_button.setVisible(config.get("history", {}).get("enabled", False))
+        self.prune_history_async()
         self.render_status()
 
     def is_busy(self) -> bool:
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None:
+            busy = getattr(jobs, "busy", False)
+            return bool(busy() if callable(busy) else busy)
         machine = getattr(self.state, "dictation_state", None)
         status = getattr(machine, "status", None)
         status_value = getattr(status, "value", status)
@@ -1659,6 +2424,20 @@ class WhisperTrayUi:
         self.window.raise_()
         self.window.activateWindow()
 
+    def show_recovery_notice(self) -> None:
+        if self._recovery_notice_shown:
+            return
+        store = getattr(self.state, "config_store", None)
+        notice = getattr(store, "recovery_notice", None) or getattr(self.state, "recovery_notice", None)
+        message = self.t.get(str(notice), "")
+        if not message:
+            return
+        self._recovery_notice_shown = True
+        if self.window.isVisible():
+            QMessageBox.warning(self.window, APP_NAME, message)
+        else:
+            self.tray.showMessage(APP_NAME, message, QSystemTrayIcon.Warning)
+
     def close_to_tray(self, event) -> None:
         event.ignore()
         self.window.hide()
@@ -1666,8 +2445,26 @@ class WhisperTrayUi:
 
     def quit(self) -> None:
         self.poller.stop()
+        self._history_timer.stop()
+        qt_app = QApplication.instance()
+        if qt_app is not None:
+            qt_app.removeEventFilter(self._hotkey_collision_filter)
+        for dialog in self.window.findChildren(SettingsDialog):
+            dialog.close()
+        try:
+            import sounddevice as sd
+
+            sd.stop()
+        except Exception:
+            logger.debug("Could not stop audio preview during shutdown", exc_info=True)
         self.hud.close()
         self.tray.hide()
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None and hasattr(jobs, "shutdown"):
+            try:
+                jobs.shutdown()
+            except Exception:
+                logger.exception("Job controller shutdown failed")
         listener = getattr(self.state, "hotkey_listener", None)
         if listener and hasattr(listener, "shutdown"):
             try:
@@ -1677,6 +2474,11 @@ class WhisperTrayUi:
         worker = getattr(self.state, "file_transcriber", None)
         if worker and hasattr(worker, "shutdown"):
             worker.shutdown()
+        deadline = time.monotonic() + 1.0
+        with self._history_threads_lock:
+            history_threads = list(self._history_threads)
+        for history_thread in history_threads:
+            history_thread.join(max(0.0, deadline - time.monotonic()))
         QCoreApplication.quit()
 
 
@@ -1687,11 +2489,17 @@ def run_qt(state, *, force_show: bool = False) -> int:
     app.setQuitOnLastWindowClosed(False)
     ui = WhisperTrayUi(state)
     state.tray_app = ui
-    state.on_transcript = lambda text: ui.ui_events.put(("transcript", text))
+    # JobController includes the transcript in its id-gated terminal event.
+    # Legacy workers still use the callback bridge.
+    if getattr(state, "jobs", None) is None:
+        state.on_transcript = lambda text: ui.ui_events.put(("transcript", text))
     if not state.config.get("onboarding_complete", False):
+        ui.show_window()
+        QTimer.singleShot(0, ui.show_recovery_notice)
         QTimer.singleShot(0, ui.open_onboarding)
     else:
         ui.start_hotkey_listener()
         if should_show_main_window(state.config, force_show=force_show):
             ui.show_window()
+        QTimer.singleShot(0, ui.show_recovery_notice)
     return app.exec()

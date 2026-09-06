@@ -35,7 +35,9 @@ class CredentialStore:
         keyring = self._keyring()
         if keyring is not None:
             try:
-                return (keyring.get_password(SERVICE_NAME, KEY_NAME) or "").strip()
+                value = (keyring.get_password(SERVICE_NAME, KEY_NAME) or "").strip()
+                if value:
+                    return value
             except Exception:
                 # Continue to the old Windows vault only for upgrades from v1.
                 pass

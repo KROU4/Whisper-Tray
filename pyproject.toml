@@ -1,6 +1,6 @@
 [project]
 name = "whispertray"
-version = "1.1.4"
+version = "1.2.0"
 description = "Privacy-aware desktop dictation for Windows, macOS, and Linux."
 requires-python = ">=3.10"
 authors = [{ name = "KROU4" }]
@@ -8,7 +8,7 @@ authors = [{ name = "KROU4" }]
 [tool.briefcase]
 project_name = "WhisperTray"
 bundle = "com.whispertray"
-version = "1.1.4"
+version = "1.2.0"
 url = "https://github.com/KROU4/Whisper-Tray"
 license = { file = "LICENSE" }
 author = "KROU4"
@@ -26,14 +26,37 @@ sources = [
     "src/whispertray", "autostart.py", "config_store.py", "core.py", "credentials.py",
     "diagnostics.py", "file_transcriber.py", "history_store.py", "hotkey.py",
     "logging_setup.py", "main.py", "platform_integration.py", "recorder.py",
-    "transcriber.py", "ui.py", "assets",
+    "transcriber.py", "ui.py", "assets", "jobs.py", "inference_worker.py", "version.py",
 ]
+test_sources = ["release_smoke/tests"]
 requires = [
     "faster-whisper==1.1.1", "groq==0.15.0", "keyring==25.7.0",
     "numpy==2.2.2", "pynput==1.8.2", "pyperclip==1.11.0", "PySide6-Essentials==6.8.1",
     "requests==2.34.2", "sounddevice==0.5.1",
 ]
 icon = "assets/whispertray"
+requirement_installer_args = ["--constraint", "./requirements.txt"]
+
+[tool.briefcase.app.whispertray.windows]
+# Widget-only application: preserve Qt GUI, software rendering, images, styles,
+# all native speech dependencies and licenses. Never blanket-remove DLLs.
+cleanup_paths = [
+    "src/app_packages/PySide6/include", "src/app_packages/PySide6/typesystems",
+    "src/app_packages/PySide6/glue", "src/app_packages/PySide6/doc",
+    "src/app_packages/PySide6/metatypes", "src/app_packages/PySide6/qml",
+    "src/app_packages/PySide6/scripts", "src/app_packages/PySide6/*.pyi",
+    "src/app_packages/PySide6/*.exe", "src/app_packages/PySide6/*.lib",
+    "src/app_packages/PySide6/QtQml*.pyd", "src/app_packages/PySide6/Qt6Qml*.dll",
+    "src/app_packages/PySide6/QtQuick*.pyd", "src/app_packages/PySide6/Qt6Quick*.dll",
+    "src/app_packages/PySide6/QtDesigner.pyd", "src/app_packages/PySide6/Qt6Designer*.dll",
+    "src/app_packages/PySide6/QtHelp.pyd", "src/app_packages/PySide6/Qt6Help.dll",
+    "src/app_packages/PySide6/QtSql.pyd", "src/app_packages/PySide6/Qt6Sql.dll",
+    "src/app_packages/PySide6/QtTest.pyd", "src/app_packages/PySide6/Qt6Test.dll",
+    "src/app_packages/PySide6/QtUiTools.pyd", "src/app_packages/PySide6/Qt6UiTools.dll",
+    "src/app_packages/PySide6/QtOpenGL.pyd", "src/app_packages/PySide6/QtOpenGLWidgets.pyd",
+    "src/app_packages/PySide6/plugins/designer", "src/app_packages/PySide6/plugins/qmltooling",
+    "src/app_packages/PySide6/plugins/sqldrivers", "src/app_packages/numpy/**/tests",
+]
 
 [tool.briefcase.app.whispertray.macOS]
 min_os_version = "12.0"
@@ -44,7 +67,10 @@ min_os_version = "12.0"
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-exclude = ["build", "dist"]
+exclude = ["build", "dist", "artifacts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

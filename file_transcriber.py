@@ -37,6 +37,9 @@ class FileTranscriptionWorker:
 
     def start(self, file_path: str) -> bool:
         """Reserve the single file job before starting its worker thread."""
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None:
+            return jobs.submit_file(file_path)
         with self.operation_lock, self._lock:
             machine = getattr(self.state, "dictation_state", None)
             status = getattr(getattr(machine, "status", None), "value", getattr(machine, "status", None))
@@ -109,6 +112,10 @@ class FileTranscriptionWorker:
             return None
 
     def shutdown(self, timeout: float = 5.0) -> None:
+        jobs = getattr(self.state, "jobs", None)
+        if jobs is not None:
+            jobs.shutdown()
+            return
         thread = self._thread
         if thread and thread.is_alive():
             thread.join(timeout)

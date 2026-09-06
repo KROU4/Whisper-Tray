@@ -1,0 +1,153 @@
+{
+  "corpus": "Six synthetic spoken phrases; three Russian and three English. No microphone or user recordings.",
+  "local_model": "tiny",
+  "local": [
+    {
+      "engine": "baseline_local",
+      "language": "ru",
+      "text": "Завтра в десять утра у нас встреча с командой.",
+      "errors": 0,
+      "words": 9,
+      "seconds": 0.485
+    },
+    {
+      "engine": "baseline_local",
+      "language": "ru",
+      "text": "Пожалуйста, отправь готовый документ после проверки.",
+      "errors": 0,
+      "words": 6,
+      "seconds": 0.328
+    },
+    {
+      "engine": "baseline_local",
+      "language": "ru",
+      "text": "Сегодня мы проверяем запись голоса и качество распознавания.",
+      "errors": 0,
+      "words": 8,
+      "seconds": 0.359
+    },
+    {
+      "engine": "baseline_local",
+      "language": "en",
+      "text": "Tomorrow at 10 we have a meeting with the team.",
+      "errors": 1,
+      "words": 10,
+      "seconds": 0.313
+    },
+    {
+      "engine": "baseline_local",
+      "language": "en",
+      "text": "Please send the final document after reviewing it.",
+      "errors": 0,
+      "words": 8,
+      "seconds": 0.312
+    },
+    {
+      "engine": "baseline_local",
+      "language": "en",
+      "text": "Today we are testing voice recording and transcription quality.",
+      "errors": 0,
+      "words": 9,
+      "seconds": 0.328
+    },
+    {
+      "engine": "current_local",
+      "language": "ru",
+      "text": "Завтра в десять утра у нас встреча с командой.",
+      "errors": 0,
+      "words": 9,
+      "seconds": 0.328
+    },
+    {
+      "engine": "current_local",
+      "language": "ru",
+      "text": "Пожалуйста, отправь готовый документ после проверки.",
+      "errors": 0,
+      "words": 6,
+      "seconds": 0.328
+    },
+    {
+      "engine": "current_local",
+      "language": "ru",
+      "text": "Сегодня мы проверяем запись голоса и качество распознавания.",
+      "errors": 0,
+      "words": 8,
+      "seconds": 0.344
+    },
+    {
+      "engine": "current_local",
+      "language": "en",
+      "text": "Tomorrow at 10 we have a meeting with the team.",
+      "errors": 1,
+      "words": 10,
+      "seconds": 0.328
+    },
+    {
+      "engine": "current_local",
+      "language": "en",
+      "text": "Please send the final document after reviewing it.",
+      "errors": 0,
+      "words": 8,
+      "seconds": 0.375
+    },
+    {
+      "engine": "current_local",
+      "language": "en",
+      "text": "Today we are testing voice recording and transcription quality.",
+      "errors": 0,
+      "words": 9,
+      "seconds": 0.531
+    }
+  ],
+  "cloud": [
+    {
+      "engine": "groq",
+      "language": "ru",
+      "text": "Завтра в 10 утра у нас встреча с командой.",
+      "errors": 1,
+      "words": 9,
+      "seconds": 1.234
+    },
+    {
+      "engine": "groq",
+      "language": "ru",
+      "text": "Пожалуйста, отправь готовый документ после проверки.",
+      "errors": 0,
+      "words": 6,
+      "seconds": 0.391
+    },
+    {
+      "engine": "groq",
+      "language": "ru",
+      "text": "Сегодня мы проверяем запись голоса и качество распознавания.",
+      "errors": 0,
+      "words": 8,
+      "seconds": 0.234
+    },
+    {
+      "engine": "groq",
+      "language": "en",
+      "text": "Tomorrow at 10 we have a meeting with the team.",
+      "errors": 1,
+      "words": 10,
+      "seconds": 0.328
+    },
+    {
+      "engine": "groq",
+      "language": "en",
+      "text": "Please send the final document after reviewing it.",
+      "errors": 0,
+      "words": 8,
+      "seconds": 0.235
+    },
+    {
+      "engine": "groq",
+      "language": "en",
+      "text": "Today we are testing voice recording and transcription quality.",
+      "errors": 0,
+      "words": 9,
+      "seconds": 0.234
+    }
+  ],
+  "speed_claim": false
+}

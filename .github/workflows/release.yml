@@ -35,7 +35,9 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes libegl1 libportaudio2
       - run: python -m pip install -r requirements-dev.txt
+      - run: python -m ruff check .
       - run: python -m pytest -q
+      - run: python tools/check_release.py
       - run: python -m briefcase create ${{ matrix.platform }} --no-input
       - if: matrix.platform == 'windows'
         run: python tools/patch_windows_installer.py
@@ -48,6 +50,12 @@ jobs:
           python -m briefcase package macOS -p pkg --adhoc-sign --no-input
       - if: matrix.platform == 'linux'
         run: python -m briefcase package linux --no-input
+      # Package first: --test updates the working bundle with test-only sources.
+      # The production installers in dist are already sealed and stay unchanged.
+      - name: Verify bundled Qt and worker spawn, cancellation, and restart
+        run: python -m briefcase run ${{ matrix.platform }} --test --no-input
+      - name: Record release checksums and sizes
+        run: python tools/release_manifest.py dist --name ${{ matrix.artifact }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.artifact }}
@@ -56,7 +64,7 @@ jobs:
             !dist/*.wixpdb
           if-no-files-found: error
 
-  publish:
+  draft:
     needs: package
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +72,7 @@ jobs:
         with:
           path: release-assets
           merge-multiple: true
-      - name: Publish GitHub release
+      - name: Create draft for installed-artifact verification
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release-assets/* --generate-notes --verify-tag --repo "$GITHUB_REPOSITORY"
+        run: gh release create "$GITHUB_REF_NAME" release-assets/* --draft --generate-notes --verify-tag --repo "$GITHUB_REPOSITORY"

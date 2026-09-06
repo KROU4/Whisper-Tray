@@ -13,17 +13,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-APP_VERSION = "1.1.2"
-_SECRET_KEYS = frozenset({"groq_api_key", "api_key", "token", "password", "secret"})
+from version import APP_VERSION
+
+_CONFIG_FIELDS = frozenset({
+    "schema_version", "profile", "ui_language", "onboarding_complete", "start_in_tray",
+    "language", "device_index", "hotkey", "hotkey_mode", "model", "file_model",
+    "transcription_backend", "groq_model", "groq_max_retries", "allow_local_fallback",
+})
+_NESTED_FIELDS = {"history": {"enabled", "retention_days"},
+                  "hud": {"enabled", "position", "high_contrast", "reduce_motion"}}
 
 
 def safe_config_summary(config: dict[str, Any]) -> dict[str, Any]:
     """Return config fields suitable for a support bundle."""
-    return {
+    result = {
         key: value
         for key, value in config.items()
-        if key.lower() not in _SECRET_KEYS and not key.lower().endswith(("_api_key", "_token", "_secret", "_password"))
+        if key in _CONFIG_FIELDS and isinstance(value, (str, int, float, bool, type(None)))
     }
+    for key, fields in _NESTED_FIELDS.items():
+        if isinstance(config.get(key), dict):
+            result[key] = {name: value for name, value in config[key].items()
+                           if name in fields and isinstance(value, (str, int, float, bool, type(None)))}
+    return result
 
 
 def collect_diagnostics(config: dict[str, Any], *, backend: str | None = None) -> dict[str, Any]:

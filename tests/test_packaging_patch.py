@@ -1,11 +1,37 @@
 from pathlib import Path
 
+import pytest
+
 from tools.patch_windows_installer import (
     add_desktop_shortcut,
     add_install_wizard,
     add_launch_after_install,
     sync_product_version,
 )
+
+
+def test_pinned_runtime_files_are_replaced_during_upgrade():
+    from tools.patch_windows_installer import set_private_runtime_reinstall_mode
+
+    source = '<Package Name="WhisperTray"><Media Id="1" /></Package>'
+    patched = set_private_runtime_reinstall_mode(source)
+    assert '<Property Id="REINSTALLMODE" Value="amus" />' in patched
+    assert set_private_runtime_reinstall_mode(patched) == patched
+    assert 'Value="amus"' in set_private_runtime_reinstall_mode(
+        '<Package><Property Id="REINSTALLMODE" Value="omus" /></Package>'
+    )
+
+
+def test_high_compression_patch_is_idempotent():
+    from tools.patch_windows_installer import set_cab_compression
+
+    source = '<Media Id="1" Cabinet="product.cab" EmbedCab="yes" />'
+    patched = set_cab_compression(source)
+    assert 'CompressionLevel="high"' in patched
+    assert set_cab_compression(patched) == patched
+    assert 'CompressionLevel="medium"' in set_cab_compression(patched, "medium")
+    with pytest.raises(ValueError):
+        set_cab_compression('<Wix />')
 
 
 def test_add_windows_desktop_shortcut_is_optional_and_idempotent():

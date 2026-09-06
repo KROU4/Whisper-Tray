@@ -28,3 +28,16 @@ def test_history_prunes_expired_and_invalid_rows(tmp_path):
     HistoryStore(path).prune(30)
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert [row["text"] for row in rows] == ["fresh"]
+
+
+def test_history_entries_are_newest_first_searchable_and_bounded(tmp_path):
+    store = HistoryStore(tmp_path / "history.jsonl")
+    store.append("First private note")
+    store.append("Second searchable note")
+    store.append("Third searchable note")
+
+    assert [row["text"] for row in store.entries(limit=2)] == [
+        "Third searchable note",
+        "Second searchable note",
+    ]
+    assert [row["text"] for row in store.entries("SECOND")] == ["Second searchable note"]

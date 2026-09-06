@@ -248,10 +248,44 @@ def sync_product_version(source: str, version: str) -> str:
     return patched
 
 
+def set_cab_compression(source: str, level: str = "high") -> str:
+    """Set compression reproducibly, without changing the installed payload."""
+    if level not in {"medium", "high"}:
+        raise ValueError("Unsupported compression level")
+
+    def replace(match):
+        media = re.sub(r'\s+CompressionLevel="[^"]*"', "", match.group(0))
+        return media.replace("/>", f'CompressionLevel="{level}" />')
+
+    patched, count = re.subn(r'<Media\b[^>]*\bCabinet="[^"]+"[^>]*/>', replace, source)
+    if not count:
+        raise ValueError("Unsupported Briefcase WiX template: embedded cabinet was not found")
+    return patched
+
+
+def set_private_runtime_reinstall_mode(source: str) -> str:
+    """Replace pinned private DLLs even when the previous bundle has newer versions.
+
+    MSI costs files before removing the old product. Its default version rules
+    can skip copying a DLL that the old product subsequently removes.
+    All files here belong to this app's private installation directory.
+    https://learn.microsoft.com/en-us/windows/win32/msi/reinstallmode
+    """
+    property_xml = '<Property Id="REINSTALLMODE" Value="amus" />'
+    pattern = r'<Property\b[^>]*\bId="REINSTALLMODE"[^>]*/>'
+    if re.search(pattern, source):
+        return re.sub(pattern, property_xml, source)
+    patched, count = re.subn(r'(<Package\b[^>]*>)', r'\1\n        ' + property_xml, source, count=1)
+    if not count:
+        raise ValueError("Unsupported WiX template: Package was not found")
+    return patched
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("path", nargs="?", type=Path, default=Path("build/whispertray/windows/app/whispertray.wxs"))
     parser.add_argument("--version", help="MSI product version; defaults to project.version from pyproject.toml")
+    parser.add_argument("--compression", choices=("medium", "high"), default="high")
     parser.add_argument("--license", type=Path, default=Path("installer/license.rtf"))
     parser.add_argument("--banner", type=Path, default=Path("installer/banner.bmp"))
     parser.add_argument("--dialog", type=Path, default=Path("installer/dialog.bmp"))
@@ -268,6 +302,8 @@ def main() -> int:
     patched = add_desktop_shortcut(patched)
     patched = add_install_wizard(patched, args.license, args.banner, args.dialog)
     patched = add_launch_after_install(patched)
+    patched = set_cab_compression(patched, args.compression)
+    patched = set_private_runtime_reinstall_mode(patched)
     args.path.write_text(patched, encoding="utf-8")
     return 0
 
