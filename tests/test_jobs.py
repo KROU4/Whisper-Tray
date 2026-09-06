@@ -269,6 +269,36 @@ def test_cancelled_dictation_ignores_late_result_and_deletes_recording(tmp_path)
         controller.shutdown()
 
 
+def test_cancel_cleanup_oserror_does_not_escape_background_thread(tmp_path, caplog):
+    state, worker, controller, recording = make_controller(tmp_path)
+    original_cleanup = None
+    try:
+        assert controller.toggle_recording()
+        assert controller.toggle_recording()
+        job_id = worker.commands[-1]["job_id"]
+        recorder = controller._recorder
+        original_cleanup = recorder.cleanup
+
+        def locked_cleanup():
+            raise PermissionError("recording is still locked")
+
+        recorder.cleanup = locked_cleanup
+        assert controller.cancel()
+        worker.results.put({"type": "result", "job_id": job_id, "text": "late text"})
+        deadline = time.monotonic() + 1.0
+        while controller.busy and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        assert controller.busy is False
+        assert recording.exists()
+        assert "Could not remove temporary recording" in caplog.text
+        assert any(event["status"] == "cancelled" for event in job_events(state))
+    finally:
+        if original_cleanup is not None:
+            controller._recorder.cleanup = original_cleanup
+        controller.shutdown()
+
+
 def test_cancel_during_insertion_stops_typing_and_keeps_result_recoverable(tmp_path):
     started = threading.Event()
 

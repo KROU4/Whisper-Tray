@@ -416,15 +416,17 @@ class JobController:
             while job_id not in self._completed_job_ids and time.monotonic() < deadline:
                 self._completion.wait(deadline - time.monotonic())
             completed = job_id in self._completed_job_ids
-        if not completed:
-            self._worker.terminate()
-        if recording_path is not None:
-            if retain_recording and recording_path.exists():
-                self._retain_recording(recording_path, job_id)
-            else:
-                self._cleanup_recording(recording_path)
-        with self._lock:
-            self._cancel_in_progress = False
+        try:
+            if not completed:
+                self._worker.terminate()
+            if recording_path is not None:
+                if retain_recording and recording_path.exists():
+                    self._retain_recording(recording_path, job_id)
+                else:
+                    self._cleanup_recording(recording_path)
+        finally:
+            with self._lock:
+                self._cancel_in_progress = False
 
     def _result_loop(self) -> None:
         while True:
@@ -614,7 +616,10 @@ class JobController:
     def _cleanup_recording(self, path: Path) -> None:
         recorder = self._recorder
         if recorder is not None and recorder.path == path:
-            recorder.cleanup()
+            try:
+                recorder.cleanup()
+            except OSError:
+                logger.warning("Could not remove temporary recording")
         else:
             self._unlink(path)
 

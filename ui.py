@@ -842,6 +842,26 @@ class MainWindowHotkeyFilter(QObject):
         return True
 
 
+class WrappedStatusLabel(QLabel):
+    """A wrapping label that reserves its platform-specific height-for-width."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWordWrap(True)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+    def reserve_height(self) -> None:
+        width = self.contentsRect().width()
+        required = self.heightForWidth(width) if width > 0 else -1
+        if required > 0 and self.minimumHeight() != required:
+            self.setMinimumHeight(required)
+            self.updateGeometry()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.reserve_height()
+
+
 class SettingsDialog(QDialog):
     def __init__(self, app: "WhisperTrayUi", onboarding: bool = False):
         super().__init__(app.window)
@@ -1871,6 +1891,7 @@ class WhisperTrayUi:
 
         status_card = QFrame()
         status_card.setObjectName("statusCard")
+        self.status_card = status_card
         status_layout = QHBoxLayout(status_card)
         status_layout.setContentsMargins(16, 14, 18, 14)
         status_layout.setSpacing(14)
@@ -1878,15 +1899,11 @@ class WhisperTrayUi:
         status_layout.addWidget(self.recording_pulse)
         status_copy = QVBoxLayout()
         status_copy.setSpacing(3)
-        self.status_label = QLabel()
+        self.status_label = WrappedStatusLabel()
         self.status_label.setObjectName("statusLabel")
-        self.status_label.setWordWrap(True)
-        self.status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         status_copy.addWidget(self.status_label)
-        self.detail_label = QLabel()
+        self.detail_label = WrappedStatusLabel()
         self.detail_label.setObjectName("detailLabel")
-        self.detail_label.setWordWrap(True)
-        self.detail_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         status_copy.addWidget(self.detail_label)
         self.task_progress = QProgressBar()
         self.task_progress.setRange(0, 0)
@@ -2018,6 +2035,7 @@ class WhisperTrayUi:
         self.profile_badge.setText(profile.split(" (")[0])
         shortcut = hotkey_display_name(self.state.config.get("hotkey", "win+alt"))
         self.detail_label.setText(f"{self.t['hotkey']}: {shortcut}")
+        self._reserve_status_text_height()
         busy = self.status in {ViewState.PREPARING, ViewState.PROCESSING}
         cancellable = self.status in {ViewState.PREPARING, ViewState.RECORDING, ViewState.PROCESSING} and getattr(
             self.state, "jobs", None
@@ -2032,6 +2050,20 @@ class WhisperTrayUi:
         self.tray.setIcon(self.icon())
         self.tray.setToolTip(f"{APP_NAME} — {text}")
         self.hud.show_status(self.status, message)
+
+    def _reserve_status_text_height(self) -> None:
+        """Give wrapped status labels the height Qt reports for their actual width."""
+        changed = False
+        for label in (self.status_label, self.detail_label):
+            previous = label.minimumHeight()
+            label.reserve_height()
+            if label.minimumHeight() != previous:
+                changed = True
+        if changed:
+            self.status_card.updateGeometry()
+            central = self.window.centralWidget()
+            if central is not None and central.layout() is not None:
+                central.layout().activate()
 
     def set_state(self, status: ViewState, message: str | None = None) -> None:
         self.status = status
@@ -2168,6 +2200,7 @@ class WhisperTrayUi:
         if silent >= 5:
             details = f"{details} · {self.t['silent_warning']}"
         self.detail_label.setText(details)
+        self._reserve_status_text_height()
 
     def _set_result(self, text: str, output_path: str | Path | None = None) -> None:
         self.last_result.setPlainText(text)

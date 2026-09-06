@@ -500,6 +500,22 @@ def test_recording_can_be_cancelled_and_silence_detail_wraps_at_minimum_width(vi
     assert view.detail_label.height() >= view.detail_label.heightForWidth(view.detail_label.width())
 
 
+def test_persistent_error_reflows_without_clipping_when_window_resizes(view, qt_app):
+    message = (
+        "The operation could not be completed because the selected transcription service is temporarily unavailable."
+    )
+    view.window.resize(440, view.window.height())
+    view.set_state(ViewState.ERROR, message)
+    qt_app.processEvents()
+
+    assert view.status is ViewState.ERROR
+    assert view.status_label.height() >= view.status_label.heightForWidth(view.status_label.width())
+
+    view.window.resize(620, view.window.height())
+    qt_app.processEvents()
+    assert view.status_label.height() >= view.status_label.heightForWidth(view.status_label.width())
+
+
 def test_two_fast_file_jobs_show_only_latest_and_ignore_stale_preparing(view):
     class Jobs:
         current_job_id = "second"
