@@ -1,5 +1,5 @@
 -r requirements.in
 pytest
-briefcase==0.3.25
+briefcase==0.4.4
 pip-tools
 ruff
