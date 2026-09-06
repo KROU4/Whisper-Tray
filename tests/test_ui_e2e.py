@@ -495,7 +495,9 @@ def test_recording_can_be_cancelled_and_silence_detail_wraps_at_minimum_width(vi
     assert view.cancel_job_button.isVisible()
     assert view.detail_label.wordWrap()
     assert view.status_label.wordWrap()
-    assert view.detail_label.height() >= view.detail_label.fontMetrics().lineSpacing() * 2
+    # Native fonts can fit this message on one line. Check for clipping using
+    # Qt's layout requirement at the actual width, rather than a line count.
+    assert view.detail_label.height() >= view.detail_label.heightForWidth(view.detail_label.width())
 
 
 def test_two_fast_file_jobs_show_only_latest_and_ignore_stale_preparing(view):

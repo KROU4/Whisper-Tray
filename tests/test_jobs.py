@@ -97,9 +97,10 @@ def job_events(state):
 
 def test_briefcase_windows_launcher_enables_frozen_spawn(monkeypatch):
     called = []
-    monkeypatch.setattr(main.os, "name", "nt")
-    monkeypatch.setattr(main.sys, "executable", r"C:\Program Files\WhisperTray\WhisperTray.exe")
-    monkeypatch.setattr(main.sys, "frozen", False, raising=False)
+    # Isolate the platform simulation: mutating os.name also changes pathlib
+    # and pytest itself on POSIX runners.
+    monkeypatch.setattr(main, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(main, "sys", SimpleNamespace(executable="WhisperTray.exe", frozen=False))
     monkeypatch.setattr(main.multiprocessing, "freeze_support", lambda: called.append(True))
 
     main._configure_multiprocessing()
