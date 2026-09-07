@@ -15,6 +15,15 @@ def main():
     for path in sorted(args.directory.iterdir()):
         if path.suffix.lower() not in {'.msi', '.dmg', '.pkg', '.deb', '.rpm', '.appimage'}:
             continue
+        # GitHub changes '~' in uploaded asset names to '.'. Normalize before
+        # hashing so the published manifest names the file users download.
+        public_name = path.name.replace('~', '.')
+        if public_name != path.name:
+            target = path.with_name(public_name)
+            if target.exists():
+                raise FileExistsError(target)
+            path.rename(target)
+            path = target
         sha = hashlib.sha256()
         with path.open('rb') as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b''):

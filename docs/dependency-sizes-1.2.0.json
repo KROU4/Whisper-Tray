@@ -1,0 +1,877 @@
+{
+  "scope": "Uncompressed app_packages by top-level component; excludes generated __pycache__ files.",
+  "baseline": {
+    "version": "1.1.4",
+    "source_commit": "c180dfd9895ab10915beb8f3b7cd5defc99159fb",
+    "python": "3.12",
+    "components": {
+      "PySide6": {
+        "bytes": 192543892,
+        "files": 2256
+      },
+      "av.libs": {
+        "bytes": 65593344,
+        "files": 25
+      },
+      "ctranslate2": {
+        "bytes": 62240088,
+        "files": 28
+      },
+      "onnxruntime": {
+        "bytes": 41089185,
+        "files": 318
+      },
+      "numpy": {
+        "bytes": 21323095,
+        "files": 843
+      },
+      "numpy.libs": {
+        "bytes": 20887208,
+        "files": 2
+      },
+      "hf_xet": {
+        "bytes": 9499243,
+        "files": 2
+      },
+      "tokenizers": {
+        "bytes": 8073577,
+        "files": 28
+      },
+      "pydantic_core": {
+        "bytes": 5370197,
+        "files": 5
+      },
+      "bin": {
+        "bytes": 4768593,
+        "files": 44
+      },
+      "av": {
+        "bytes": 3602871,
+        "files": 219
+      },
+      "huggingface_hub": {
+        "bytes": 3066257,
+        "files": 186
+      },
+      "shiboken6": {
+        "bytes": 2849183,
+        "files": 18
+      },
+      "pydantic": {
+        "bytes": 1773212,
+        "files": 107
+      },
+      "google": {
+        "bytes": 1703236,
+        "files": 59
+      },
+      "faster_whisper": {
+        "bytes": 1363089,
+        "files": 11
+      },
+      "fsspec": {
+        "bytes": 735218,
+        "files": 57
+      },
+      "_sounddevice_data": {
+        "bytes": 648654,
+        "files": 4
+      },
+      "anyio": {
+        "bytes": 529017,
+        "files": 47
+      },
+      "charset_normalizer": {
+        "bytes": 509031,
+        "files": 15
+      },
+      "packaging": {
+        "bytes": 481499,
+        "files": 23
+      },
+      "yaml": {
+        "bytes": 471458,
+        "files": 18
+      },
+      "click": {
+        "bytes": 441955,
+        "files": 18
+      },
+      "urllib3": {
+        "bytes": 420902,
+        "files": 38
+      },
+      "cffi": {
+        "bytes": 379948,
+        "files": 24
+      },
+      "groq": {
+        "bytes": 362543,
+        "files": 77
+      },
+      "filelock": {
+        "bytes": 349580,
+        "files": 22
+      },
+      "idna": {
+        "bytes": 325223,
+        "files": 11
+      },
+      "hf_xet-1.6.0.dist-info": {
+        "bytes": 306191,
+        "files": 6
+      },
+      "httpx": {
+        "bytes": 284396,
+        "files": 24
+      },
+      "PySide6_Essentials-6.8.1.dist-info": {
+        "bytes": 281680,
+        "files": 8
+      },
+      "pynput": {
+        "bytes": 263123,
+        "files": 23
+      },
+      "httpcore": {
+        "bytes": 261935,
+        "files": 32
+      },
+      "more_itertools": {
+        "bytes": 251039,
+        "files": 7
+      },
+      "certifi": {
+        "bytes": 244414,
+        "files": 7
+      },
+      "requests": {
+        "bytes": 217284,
+        "files": 20
+      },
+      "numpy-2.2.2.dist-info": {
+        "bytes": 214073,
+        "files": 8
+      },
+      "pycparser": {
+        "bytes": 192843,
+        "files": 8
+      },
+      "_cffi_backend.cp312-win_amd64.pyd": {
+        "bytes": 181248,
+        "files": 1
+      },
+      "tqdm": {
+        "bytes": 171084,
+        "files": 33
+      },
+      "tokenizers-0.23.2.dist-info": {
+        "bytes": 168122,
+        "files": 5
+      },
+      "typing_extensions.py": {
+        "bytes": 165012,
+        "files": 1
+      },
+      "pydantic_core-2.46.5.dist-info": {
+        "bytes": 134365,
+        "files": 6
+      },
+      "pydantic-2.13.5.dist-info": {
+        "bytes": 126854,
+        "files": 5
+      },
+      "sounddevice.py": {
+        "bytes": 109827,
+        "files": 1
+      },
+      "h11": {
+        "bytes": 93124,
+        "files": 12
+      },
+      "flatbuffers": {
+        "bytes": 85743,
+        "files": 10
+      },
+      "keyring": {
+        "bytes": 77636,
+        "files": 31
+      },
+      "win32ctypes": {
+        "bytes": 69049,
+        "files": 34
+      },
+      "onnxruntime-1.29.0.dist-info": {
+        "bytes": 66738,
+        "files": 6
+      },
+      "tqdm-4.70.0.dist-info": {
+        "bytes": 64015,
+        "files": 7
+      },
+      "huggingface_hub-1.30.0.dist-info": {
+        "bytes": 60206,
+        "files": 7
+      },
+      "colorama": {
+        "bytes": 57543,
+        "files": 13
+      },
+      "charset_normalizer-3.5.1.dist-info": {
+        "bytes": 50792,
+        "files": 7
+      },
+      "distro": {
+        "bytes": 50475,
+        "files": 4
+      },
+      "typing_inspection": {
+        "bytes": 50023,
+        "files": 5
+      },
+      "jaraco": {
+        "bytes": 46426,
+        "files": 10
+      },
+      "pynput-1.8.2.dist-info": {
+        "bytes": 44198,
+        "files": 9
+      },
+      "more_itertools-11.1.0.dist-info": {
+        "bytes": 43736,
+        "files": 5
+      },
+      "av-18.1.0.dist-info": {
+        "bytes": 42565,
+        "files": 10
+      },
+      "groq-0.15.0.dist-info": {
+        "bytes": 37736,
+        "files": 6
+      },
+      "six.py": {
+        "bytes": 34703,
+        "files": 1
+      },
+      "httpcore-1.0.9.dist-info": {
+        "bytes": 27900,
+        "files": 5
+      },
+      "keyring-25.7.0.dist-info": {
+        "bytes": 27719,
+        "files": 8
+      },
+      "pyperclip": {
+        "bytes": 24091,
+        "files": 2
+      },
+      "colorama-0.4.6.dist-info": {
+        "bytes": 20932,
+        "files": 5
+      },
+      "fsspec-2026.7.0.dist-info": {
+        "bytes": 20494,
+        "files": 5
+      },
+      "faster_whisper-1.1.1.dist-info": {
+        "bytes": 19679,
+        "files": 7
+      },
+      "annotated_types": {
+        "bytes": 19583,
+        "files": 3
+      },
+      "distro-1.9.0.dist-info": {
+        "bytes": 19346,
+        "files": 7
+      },
+      "packaging-26.3.dist-info": {
+        "bytes": 18926,
+        "files": 7
+      },
+      "requests-2.34.2.dist-info": {
+        "bytes": 18243,
+        "files": 8
+      },
+      "sniffio-1.3.1.dist-info": {
+        "bytes": 17956,
+        "files": 8
+      },
+      "typing_extensions-4.16.0.dist-info": {
+        "bytes": 17912,
+        "files": 5
+      },
+      "ctranslate2-4.8.2.dist-info": {
+        "bytes": 17027,
+        "files": 6
+      },
+      "annotated_types-0.8.0.dist-info": {
+        "bytes": 16985,
+        "files": 5
+      },
+      "_sounddevice.py": {
+        "bytes": 13751,
+        "files": 1
+      },
+      "urllib3-2.7.0.dist-info": {
+        "bytes": 13563,
+        "files": 5
+      },
+      "anyio-4.15.1.dist-info": {
+        "bytes": 12750,
+        "files": 7
+      },
+      "idna-3.19.dist-info": {
+        "bytes": 12613,
+        "files": 6
+      },
+      "httpx-0.28.1.dist-info": {
+        "bytes": 12214,
+        "files": 6
+      },
+      "protobuf-7.36.1.dist-info": {
+        "bytes": 11979,
+        "files": 5
+      },
+      "h11-0.16.0.dist-info": {
+        "bytes": 11401,
+        "files": 6
+      },
+      "pycparser-3.0.dist-info": {
+        "bytes": 11362,
+        "files": 6
+      },
+      "pywin32_ctypes-0.2.3.dist-info": {
+        "bytes": 11312,
+        "files": 6
+      },
+      "cffi-2.1.1.dist-info": {
+        "bytes": 7480,
+        "files": 7
+      },
+      "pyperclip-1.11.0.dist-info": {
+        "bytes": 7364,
+        "files": 8
+      },
+      "click-8.5.0.dist-info": {
+        "bytes": 6661,
+        "files": 5
+      },
+      "filelock-3.32.5.dist-info": {
+        "bytes": 6400,
+        "files": 5
+      },
+      "pyyaml-6.0.3.dist-info": {
+        "bytes": 6320,
+        "files": 6
+      },
+      "jaraco_context-6.1.2.dist-info": {
+        "bytes": 6155,
+        "files": 6
+      },
+      "jaraco_functools-4.6.0.dist-info": {
+        "bytes": 5897,
+        "files": 8
+      },
+      "shiboken6-6.8.1.dist-info": {
+        "bytes": 5394,
+        "files": 6
+      },
+      "sniffio": {
+        "bytes": 5325,
+        "files": 6
+      },
+      "jaraco.classes-3.4.0.dist-info": {
+        "bytes": 4896,
+        "files": 6
+      },
+      "certifi-2026.7.22.dist-info": {
+        "bytes": 4867,
+        "files": 6
+      },
+      "typing_inspection-0.4.4.dist-info": {
+        "bytes": 4811,
+        "files": 5
+      },
+      "sounddevice-0.5.1.dist-info": {
+        "bytes": 3880,
+        "files": 7
+      },
+      "six-1.17.0.dist-info": {
+        "bytes": 3402,
+        "files": 6
+      },
+      "flatbuffers-25.12.19.dist-info": {
+        "bytes": 2871,
+        "files": 5
+      },
+      "_yaml": {
+        "bytes": 1402,
+        "files": 1
+      },
+      "numpy-2.2.2-cp312-cp312-win_amd64.whl": {
+        "bytes": 0,
+        "files": 1
+      }
+    }
+  },
+  "candidate": {
+    "version": "1.2.0",
+    "python": "3.11",
+    "components": {
+      "PySide6": {
+        "bytes": 96406226,
+        "files": 261
+      },
+      "av.libs": {
+        "bytes": 65593344,
+        "files": 25
+      },
+      "ctranslate2": {
+        "bytes": 62223594,
+        "files": 28
+      },
+      "onnxruntime": {
+        "bytes": 40408124,
+        "files": 318
+      },
+      "numpy.libs": {
+        "bytes": 20887208,
+        "files": 2
+      },
+      "numpy": {
+        "bytes": 15607239,
+        "files": 469
+      },
+      "hf_xet": {
+        "bytes": 9499243,
+        "files": 2
+      },
+      "tokenizers": {
+        "bytes": 7781015,
+        "files": 28
+      },
+      "pydantic_core": {
+        "bytes": 5452629,
+        "files": 5
+      },
+      "bin": {
+        "bytes": 4768153,
+        "files": 44
+      },
+      "av": {
+        "bytes": 3500210,
+        "files": 214
+      },
+      "setuptools": {
+        "bytes": 3406154,
+        "files": 432
+      },
+      "huggingface_hub": {
+        "bytes": 3019690,
+        "files": 186
+      },
+      "shiboken6": {
+        "bytes": 2849183,
+        "files": 18
+      },
+      "pydantic": {
+        "bytes": 1772739,
+        "files": 107
+      },
+      "google": {
+        "bytes": 1647320,
+        "files": 55
+      },
+      "faster_whisper": {
+        "bytes": 1363089,
+        "files": 11
+      },
+      "fsspec": {
+        "bytes": 735218,
+        "files": 57
+      },
+      "_sounddevice_data": {
+        "bytes": 648654,
+        "files": 4
+      },
+      "anyio": {
+        "bytes": 498535,
+        "files": 44
+      },
+      "packaging": {
+        "bytes": 481499,
+        "files": 23
+      },
+      "yaml": {
+        "bytes": 476066,
+        "files": 18
+      },
+      "click": {
+        "bytes": 422677,
+        "files": 18
+      },
+      "urllib3": {
+        "bytes": 420902,
+        "files": 38
+      },
+      "cffi": {
+        "bytes": 379948,
+        "files": 24
+      },
+      "groq": {
+        "bytes": 362543,
+        "files": 77
+      },
+      "filelock": {
+        "bytes": 346610,
+        "files": 22
+      },
+      "idna": {
+        "bytes": 317227,
+        "files": 11
+      },
+      "hf_xet-1.6.0.dist-info": {
+        "bytes": 306191,
+        "files": 6
+      },
+      "httpx": {
+        "bytes": 284396,
+        "files": 24
+      },
+      "PySide6_Essentials-6.8.1.dist-info": {
+        "bytes": 281680,
+        "files": 8
+      },
+      "pynput": {
+        "bytes": 263123,
+        "files": 23
+      },
+      "httpcore": {
+        "bytes": 261935,
+        "files": 32
+      },
+      "more_itertools": {
+        "bytes": 251039,
+        "files": 7
+      },
+      "certifi": {
+        "bytes": 244414,
+        "files": 7
+      },
+      "numpy-2.2.2.dist-info": {
+        "bytes": 231083,
+        "files": 8
+      },
+      "ada92cb5d92a588d1b93__mypyc.cp311-win_amd64.pyd": {
+        "bytes": 221696,
+        "files": 1
+      },
+      "requests": {
+        "bytes": 217284,
+        "files": 20
+      },
+      "charset_normalizer": {
+        "bytes": 205917,
+        "files": 15
+      },
+      "pycparser": {
+        "bytes": 192843,
+        "files": 8
+      },
+      "_cffi_backend.cp311-win_amd64.pyd": {
+        "bytes": 179712,
+        "files": 1
+      },
+      "tqdm": {
+        "bytes": 171084,
+        "files": 33
+      },
+      "typing_extensions.py": {
+        "bytes": 165012,
+        "files": 1
+      },
+      "tokenizers-0.23.1.dist-info": {
+        "bytes": 160373,
+        "files": 5
+      },
+      "pydantic_core-2.46.4.dist-info": {
+        "bytes": 134365,
+        "files": 6
+      },
+      "pydantic-2.13.4.dist-info": {
+        "bytes": 126073,
+        "files": 5
+      },
+      "sounddevice.py": {
+        "bytes": 109827,
+        "files": 1
+      },
+      "backports": {
+        "bytes": 109199,
+        "files": 5
+      },
+      "h11": {
+        "bytes": 93124,
+        "files": 12
+      },
+      "flatbuffers": {
+        "bytes": 85743,
+        "files": 10
+      },
+      "keyring": {
+        "bytes": 77636,
+        "files": 31
+      },
+      "setuptools-83.0.0.dist-info": {
+        "bytes": 74966,
+        "files": 7
+      },
+      "win32ctypes": {
+        "bytes": 69049,
+        "files": 34
+      },
+      "onnxruntime-1.28.0.dist-info": {
+        "bytes": 66639,
+        "files": 6
+      },
+      "tqdm-4.70.0.dist-info": {
+        "bytes": 64015,
+        "files": 7
+      },
+      "importlib_metadata": {
+        "bytes": 60981,
+        "files": 13
+      },
+      "huggingface_hub-1.27.0.dist-info": {
+        "bytes": 60197,
+        "files": 7
+      },
+      "colorama": {
+        "bytes": 57543,
+        "files": 13
+      },
+      "distro": {
+        "bytes": 50475,
+        "files": 4
+      },
+      "typing_inspection": {
+        "bytes": 49101,
+        "files": 5
+      },
+      "charset_normalizer-3.4.9.dist-info": {
+        "bytes": 46684,
+        "files": 7
+      },
+      "jaraco": {
+        "bytes": 46426,
+        "files": 10
+      },
+      "pynput-1.8.2.dist-info": {
+        "bytes": 44198,
+        "files": 9
+      },
+      "more_itertools-11.1.0.dist-info": {
+        "bytes": 43736,
+        "files": 5
+      },
+      "av-18.0.0.dist-info": {
+        "bytes": 41675,
+        "files": 10
+      },
+      "groq-0.15.0.dist-info": {
+        "bytes": 37736,
+        "files": 6
+      },
+      "six.py": {
+        "bytes": 34703,
+        "files": 1
+      },
+      "httpcore-1.0.9.dist-info": {
+        "bytes": 27900,
+        "files": 5
+      },
+      "keyring-25.7.0.dist-info": {
+        "bytes": 27719,
+        "files": 8
+      },
+      "pyperclip": {
+        "bytes": 24091,
+        "files": 2
+      },
+      "colorama-0.4.6.dist-info": {
+        "bytes": 20932,
+        "files": 5
+      },
+      "fsspec-2026.7.0.dist-info": {
+        "bytes": 20494,
+        "files": 5
+      },
+      "faster_whisper-1.1.1.dist-info": {
+        "bytes": 19679,
+        "files": 7
+      },
+      "annotated_types": {
+        "bytes": 19583,
+        "files": 3
+      },
+      "distro-1.9.0.dist-info": {
+        "bytes": 19346,
+        "files": 7
+      },
+      "packaging-26.3.dist-info": {
+        "bytes": 18926,
+        "files": 7
+      },
+      "requests-2.34.2.dist-info": {
+        "bytes": 18243,
+        "files": 8
+      },
+      "sniffio-1.3.1.dist-info": {
+        "bytes": 17956,
+        "files": 8
+      },
+      "typing_extensions-4.16.0.dist-info": {
+        "bytes": 17912,
+        "files": 5
+      },
+      "zipp": {
+        "bytes": 17625,
+        "files": 7
+      },
+      "importlib_metadata-9.0.1.dist-info": {
+        "bytes": 17349,
+        "files": 6
+      },
+      "ctranslate2-4.8.1.dist-info": {
+        "bytes": 17054,
+        "files": 6
+      },
+      "annotated_types-0.8.0.dist-info": {
+        "bytes": 16985,
+        "files": 5
+      },
+      "anyio-4.14.2.dist-info": {
+        "bytes": 16259,
+        "files": 9
+      },
+      "_sounddevice.py": {
+        "bytes": 13751,
+        "files": 1
+      },
+      "urllib3-2.7.0.dist-info": {
+        "bytes": 13563,
+        "files": 5
+      },
+      "httpx-0.28.1.dist-info": {
+        "bytes": 12214,
+        "files": 6
+      },
+      "h11-0.16.0.dist-info": {
+        "bytes": 11401,
+        "files": 6
+      },
+      "pycparser-3.0.dist-info": {
+        "bytes": 11362,
+        "files": 6
+      },
+      "pywin32_ctypes-0.2.3.dist-info": {
+        "bytes": 11312,
+        "files": 6
+      },
+      "protobuf-7.35.1.dist-info": {
+        "bytes": 11283,
+        "files": 5
+      },
+      "idna-3.18.dist-info": {
+        "bytes": 9573,
+        "files": 6
+      },
+      "cffi-2.1.1.dist-info": {
+        "bytes": 7480,
+        "files": 7
+      },
+      "pyperclip-1.11.0.dist-info": {
+        "bytes": 7364,
+        "files": 8
+      },
+      "_distutils_hack": {
+        "bytes": 6799,
+        "files": 2
+      },
+      "click-8.4.2.dist-info": {
+        "bytes": 6715,
+        "files": 5
+      },
+      "filelock-3.32.2.dist-info": {
+        "bytes": 6400,
+        "files": 5
+      },
+      "pyyaml-6.0.3.dist-info": {
+        "bytes": 6320,
+        "files": 6
+      },
+      "jaraco_context-6.1.2.dist-info": {
+        "bytes": 6155,
+        "files": 6
+      },
+      "zipp-4.1.0.dist-info": {
+        "bytes": 6150,
+        "files": 6
+      },
+      "jaraco_functools-4.6.0.dist-info": {
+        "bytes": 5897,
+        "files": 8
+      },
+      "shiboken6-6.8.1.dist-info": {
+        "bytes": 5394,
+        "files": 6
+      },
+      "sniffio": {
+        "bytes": 5325,
+        "files": 6
+      },
+      "jaraco.classes-3.4.0.dist-info": {
+        "bytes": 4896,
+        "files": 6
+      },
+      "certifi-2026.7.22.dist-info": {
+        "bytes": 4867,
+        "files": 6
+      },
+      "typing_inspection-0.4.2.dist-info": {
+        "bytes": 4809,
+        "files": 5
+      },
+      "backports.tarfile-1.2.0.dist-info": {
+        "bytes": 4411,
+        "files": 6
+      },
+      "sounddevice-0.5.1.dist-info": {
+        "bytes": 3880,
+        "files": 7
+      },
+      "six-1.17.0.dist-info": {
+        "bytes": 3402,
+        "files": 6
+      },
+      "flatbuffers-25.12.19.dist-info": {
+        "bytes": 2871,
+        "files": 5
+      },
+      "_yaml": {
+        "bytes": 1402,
+        "files": 1
+      },
+      "distutils-precedence.pth": {
+        "bytes": 151,
+        "files": 1
+      },
+      "numpy-2.2.2-cp311-cp311-win_amd64.whl": {
+        "bytes": 0,
+        "files": 1
+      }
+    }
+  },
+  "comparison_limit": "Clean local baseline versus extracted CI MSI; Python and pinned transitive versions differ. CAB compression is measured separately on identical baseline payloads."
+}

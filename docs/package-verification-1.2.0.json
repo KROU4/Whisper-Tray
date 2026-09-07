@@ -1,0 +1,39 @@
+{
+  "version": "1.2.0",
+  "source_commit": "2baca681a307ecc4899656efec7038775a98eb3e",
+  "release_workflow": "https://github.com/KROU4/Whisper-Tray/actions/runs/34098231131",
+  "pytest_count_per_platform": 127,
+  "published_1_1_4_msi_bytes": 143051752,
+  "msi_reduction_bytes": 38307222,
+  "msi_reduction_percent": 26.78,
+  "windows_payload": {
+    "source_files_matching": 30,
+    "payload_files": 3274,
+    "payload_bytes": 380758954,
+    "software_renderer": true,
+    "qml_removed": true,
+    "test_sources_absent": true
+  },
+  "artifacts": [
+    {
+      "name": "whispertray_1.2.0-1.ubuntu-noble_amd64.deb",
+      "bytes": 163352104,
+      "sha256": "7e8da1ae825126ee427df1ec0ebc180b83ddb956de4223a362cdb2eb00d6ac20"
+    },
+    {
+      "name": "WhisperTray-1.2.0.dmg",
+      "bytes": 318355491,
+      "sha256": "123ae4fb5c6ed54670bc016e4ad89e2597dea9c157543906ce97025ab5f0bacb"
+    },
+    {
+      "name": "WhisperTray-1.2.0.pkg",
+      "bytes": 348152198,
+      "sha256": "cbf3e70cec0b751ce496059c9bb58a0a076add1a4114b90ff224c7bc360d06cc"
+    },
+    {
+      "name": "WhisperTray-1.2.0.msi",
+      "bytes": 104744530,
+      "sha256": "dd9255eb2812021341b86a9492b990fe4c46f8681cc01c2e3f58e3dbfd74d4e3"
+    }
+  ]
+}
