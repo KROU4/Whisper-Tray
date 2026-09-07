@@ -10,6 +10,11 @@ const { lang } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${base}/${path}`;
 const releaseUrl = "https://github.com/KROU4/Whisper-Tray/releases/latest";
+const downloadUrls = {
+  windows: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.2.0/WhisperTray-1.2.0.msi",
+  macos: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.2.0/WhisperTray-1.2.0.dmg",
+  linux: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.2.0/whispertray_1.2.0-1.ubuntu-noble_amd64.deb",
+};
 const repoUrl = "https://github.com/KROU4/Whisper-Tray";
 
 const copy = lang === "ru" ? {
@@ -24,7 +29,11 @@ const copy = lang === "ru" ? {
   heroAccent: "WhisperTray",
   heroBottom: "напечатает.",
   heroText: "Быстрая диктовка в любом приложении",
-  download: "Скачать для Windows",
+  downloads: {
+    windows: "Скачать для Windows",
+    macos: "Скачать для Mac",
+    linux: "Скачать для Linux",
+  },
   github: "Смотреть на GitHub",
   facts: ["Windows 10/11", "Локальное распознавание", "Без подписки"],
   profilesTitle: "Два режима. Один голосовой помощник.",
@@ -73,7 +82,11 @@ const copy = lang === "ru" ? {
   heroAccent: "WhisperTray",
   heroBottom: "will type.",
   heroText: "Fast dictation in any application",
-  download: "Download for Windows",
+  downloads: {
+    windows: "Download for Windows",
+    macos: "Download for Mac",
+    linux: "Download for Linux",
+  },
   github: "View on GitHub",
   facts: ["Windows 10/11", "Local recognition", "No subscription"],
   profilesTitle: "Two modes. One voice assistant.",
@@ -127,7 +140,16 @@ const copy = lang === "ru" ? {
     </nav>
     <div class="header-actions">
       <a class="language-link" href={copy.languageHref} lang={lang === "ru" ? "en" : "ru"}>{copy.language}</a>
-      <a class="button button-small" href={releaseUrl}>{copy.download}</a>
+      <a
+        class="button button-small platform-download"
+        href={downloadUrls.windows}
+        data-download-windows={downloadUrls.windows}
+        data-download-macos={downloadUrls.macos}
+        data-download-linux={downloadUrls.linux}
+        data-label-windows={copy.downloads.windows}
+        data-label-macos={copy.downloads.macos}
+        data-label-linux={copy.downloads.linux}
+      ><span data-download-label>{copy.downloads.windows}</span></a>
     </div>
   </header>
 
@@ -144,9 +166,20 @@ const copy = lang === "ru" ? {
           </h1>
           <p class="hero-lead">{copy.heroText}</p>
           <div class="hero-actions">
-            <a class="button button-primary" href={releaseUrl}>
-              <Icon name="mdi:microsoft-windows" aria-hidden="true" />
-              {copy.download}
+            <a
+              class="button button-primary platform-download"
+              href={downloadUrls.windows}
+              data-download-windows={downloadUrls.windows}
+              data-download-macos={downloadUrls.macos}
+              data-download-linux={downloadUrls.linux}
+              data-label-windows={copy.downloads.windows}
+              data-label-macos={copy.downloads.macos}
+              data-label-linux={copy.downloads.linux}
+            >
+              <span data-download-icon="windows"><Icon name="mdi:microsoft-windows" aria-hidden="true" /></span>
+              <span data-download-icon="macos" hidden><Icon name="mdi:apple" aria-hidden="true" /></span>
+              <span data-download-icon="linux" hidden><Icon name="mdi:linux" aria-hidden="true" /></span>
+              <span data-download-label>{copy.downloads.windows}</span>
             </a>
             <a class="button button-secondary" href={repoUrl}>
               <Icon name="mdi:github" aria-hidden="true" />
@@ -262,6 +295,10 @@ const copy = lang === "ru" ? {
   </footer>
 
   <script>
+    import { configurePlatformDownloads } from "../scripts/platform-download.mjs";
+
+    configurePlatformDownloads();
+
     document.querySelectorAll("details").forEach((detail) => {
       detail.addEventListener("toggle", () => {
         const icon = detail.querySelector("svg");

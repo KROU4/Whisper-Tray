@@ -14,6 +14,8 @@ export default defineConfig({
       include: {
         mdi: [
           "microsoft-windows",
+          "apple",
+          "linux",
           "github",
           "shield-lock-outline",
           "lightning-bolt-outline",
