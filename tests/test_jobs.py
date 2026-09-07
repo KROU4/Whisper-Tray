@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import jobs
 import main
 import release_smoke.tests.whispertray.__main__ as packaged_smoke
@@ -109,12 +111,14 @@ def test_briefcase_windows_launcher_enables_frozen_spawn(monkeypatch):
     assert called == [True]
 
 
-def test_briefcase_posix_launcher_handles_spawn_bootstrap_without_ui(monkeypatch):
+@pytest.mark.parametrize("flags", [[], ["-B", "-I"], ["-I", "-Wdefault", "-X", "utf8"]])
+def test_briefcase_posix_launcher_handles_spawn_bootstrap_without_ui(monkeypatch, flags):
     called = []
     monkeypatch.setattr(main.sys, "argv", ["pytest"])
     monkeypatch.setattr("multiprocessing.spawn.spawn_main", lambda **kwargs: called.append(kwargs))
     argv = [
         "/Applications/WhisperTray.app/Contents/MacOS/WhisperTray",
+        *flags,
         "-c",
         "from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=7, pipe_handle=11)",
         "--multiprocessing-fork",
@@ -125,11 +129,13 @@ def test_briefcase_posix_launcher_handles_spawn_bootstrap_without_ui(monkeypatch
     assert main.sys.argv[1] == "--multiprocessing-fork"
 
 
-def test_briefcase_posix_launcher_handles_resource_tracker_without_ui(monkeypatch):
+@pytest.mark.parametrize("flags", [[], ["-B", "-I"], ["-I", "-Wdefault", "-X", "utf8"]])
+def test_briefcase_posix_launcher_handles_resource_tracker_without_ui(monkeypatch, flags):
     called = []
     monkeypatch.setattr("multiprocessing.resource_tracker.main", called.append)
     argv = [
         "/opt/WhisperTray/WhisperTray",
+        *flags,
         "-c",
         "from multiprocessing.resource_tracker import main;main(9)",
     ]

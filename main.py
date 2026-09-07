@@ -36,9 +36,22 @@ def _run_multiprocessing_bootstrap(argv: list[str] | None = None) -> bool:
     are accepted; arbitrary command strings are never evaluated.
     """
     arguments = list(sys.argv if argv is None else argv)
-    if len(arguments) < 3 or arguments[1] != "-c":
+    command_index = 1
+    # multiprocessing reproduces the embedded interpreter's flags before -c.
+    # Briefcase forwards them as app arguments instead of consuming them.
+    while command_index < len(arguments) and arguments[command_index] != "-c":
+        flag = arguments[command_index]
+        if re.fullmatch(r"-(?:[dBSvbqO]+|I|E|s|P|W.+)", flag):
+            command_index += 1
+        elif flag == "-X" and command_index + 1 < len(arguments):
+            if arguments[command_index + 1].startswith("-"):
+                return False
+            command_index += 2
+        else:
+            return False
+    if command_index + 1 >= len(arguments):
         return False
-    code = arguments[2].strip()
+    code = arguments[command_index + 1].strip()
     tracker_match = _RESOURCE_TRACKER_CODE.fullmatch(code)
     if tracker_match is not None:
         from multiprocessing.resource_tracker import main as resource_tracker_main
@@ -47,7 +60,7 @@ def _run_multiprocessing_bootstrap(argv: list[str] | None = None) -> bool:
         return True
 
     spawn_match = _SPAWN_CODE.fullmatch(code)
-    if spawn_match is None or "--multiprocessing-fork" not in arguments[3:]:
+    if spawn_match is None or "--multiprocessing-fork" not in arguments[command_index + 2:]:
         return False
     parsed = {}
     raw_arguments = spawn_match.group("arguments").strip()
