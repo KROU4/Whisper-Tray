@@ -45,10 +45,17 @@ def _probe(client, source: Path, job_id: str) -> dict:
 
 
 def run_smoke() -> None:
+    import numpy as np
+    from faster_whisper.vad import get_speech_timestamps
     from PySide6.QtCore import qVersion
 
     from jobs import InferenceWorkerClient
     from version import APP_VERSION
+
+    # Exercise the bundled native audio/ONNX stack without downloading a model
+    # or recording a microphone. This also checks the macOS 12 dependency pins.
+    if get_speech_timestamps(np.zeros(16_000, dtype=np.float32)):
+        raise RuntimeError("Silence was unexpectedly classified as speech")
 
     temporary = tempfile.NamedTemporaryFile(prefix="whispertray-smoke-", suffix=".invalid", delete=False)
     source = Path(temporary.name)

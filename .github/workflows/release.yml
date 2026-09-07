@@ -53,7 +53,15 @@ jobs:
       # Package first: --test updates the working bundle with test-only sources.
       # The production installers in dist are already sealed and stay unchanged.
       - name: Verify bundled Qt and worker spawn, cancellation, and restart
+        if: matrix.platform != 'linux'
         run: python -m briefcase run ${{ matrix.platform }} --test --no-input
+      - name: Verify Linux bundle against its system Python runtime
+        if: matrix.platform == 'linux'
+        # setup-python's libpython overrides the distro library linked by the
+        # native Briefcase bootstrap, mixing two standard-library layouts.
+        env:
+          LD_LIBRARY_PATH: ""
+        run: python -m briefcase run linux --test --no-input
       - name: Record release checksums and sizes
         run: python tools/release_manifest.py dist --name ${{ matrix.artifact }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -1,5 +1,5 @@
 # Human-maintained runtime dependency inputs. Generate requirements.txt with:
-#   pip-compile requirements.in -o requirements.txt
+#   uv pip compile requirements.in --universal --python-version 3.11 --constraint requirements.txt -o requirements.txt
 faster-whisper
 requests
 groq
@@ -9,3 +9,8 @@ pynput
 keyring
 pyperclip
 PySide6-Essentials
+# Newer ARM64 wheels require macOS 13/14; retain the app's macOS 12 minimum.
+onnxruntime==1.19.2 ; sys_platform == 'darwin'
+av==14.2.0 ; sys_platform == 'darwin'
+onnxruntime==1.28.0 ; sys_platform != 'darwin'
+av==18.0.0 ; sys_platform != 'darwin'
