@@ -60,6 +60,18 @@ cleanup_paths = [
 
 [tool.briefcase.app.whispertray.macOS]
 min_os_version = "12.0"
+# Only the post-package test bundle needs Apple's stdout/stderr bridge.
+test_requires = ["std-nslog==1.0.3"]
+
+[tool.briefcase.app.whispertray.linux.system.ubuntu.noble]
+# Native Qt plugins and PortAudio are loaded dynamically; Briefcase cannot
+# infer their Debian runtime dependencies from the launcher alone.
+system_runtime_requires = [
+    "libportaudio2", "libegl1", "libgl1", "libdbus-1-3", "libfontconfig1",
+    "libglib2.0-0t64", "libx11-xcb1", "libxkbcommon-x11-0", "libxcb-cursor0",
+    "libxcb-icccm4", "libxcb-keysyms1", "libxcb-randr0", "libxcb-shape0",
+    "libxcb-sync1", "libxcb-xfixes0",
+]
 
 # Briefcase builds matching-host artifacts: Windows MSI, macOS DMG/PKG and
 # Briefcase builds native packages on their matching host operating system.

@@ -54,14 +54,23 @@ jobs:
       # The production installers in dist are already sealed and stay unchanged.
       - name: Verify bundled Qt and worker spawn, cancellation, and restart
         if: matrix.platform != 'linux'
+        timeout-minutes: 5
         run: python -m briefcase run ${{ matrix.platform }} --test --no-input
       - name: Verify Linux bundle against its system Python runtime
         if: matrix.platform == 'linux'
+        timeout-minutes: 5
         # setup-python's libpython overrides the distro library linked by the
         # native Briefcase bootstrap, mixing two standard-library layouts.
         env:
           LD_LIBRARY_PATH: ""
         run: python -m briefcase run linux --test --no-input
+      - name: Verify installed DEB in clean Ubuntu
+        if: matrix.platform == 'linux'
+        timeout-minutes: 10
+        run: |
+          docker run --rm -v "$PWD:/verification:ro" \
+            ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517 \
+            bash -c 'apt-get update -qq && apt-get install --yes python3 /verification/dist/*.deb > /tmp/install.log && python3 /verification/tools/check_linux_runtime.py'
       - name: Record release checksums and sizes
         run: python tools/release_manifest.py dist --name ${{ matrix.artifact }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
