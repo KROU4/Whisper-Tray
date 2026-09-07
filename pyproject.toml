@@ -60,8 +60,6 @@ cleanup_paths = [
 
 [tool.briefcase.app.whispertray.macOS]
 min_os_version = "12.0"
-# Only the post-package test bundle needs Apple's stdout/stderr bridge.
-test_requires = ["std-nslog==1.0.3"]
 
 [tool.briefcase.app.whispertray.linux.system.ubuntu.noble]
 # Native Qt plugins and PortAudio are loaded dynamically; Briefcase cannot

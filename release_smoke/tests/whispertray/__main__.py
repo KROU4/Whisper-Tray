@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import tempfile
 import time
 import traceback
@@ -100,6 +102,14 @@ def main() -> int | None:
     # so it must establish frozen spawn handling here as well.
     _configure_multiprocessing()
     run_smoke()
+    # macOS may redact NSLog output, including Briefcase's exit sentinel.
+    # A fresh, parent-owned result file verifies completion independently.
+    if report_path := os.environ.get("WHISPERTRAY_SMOKE_REPORT"):
+        from version import APP_VERSION
+
+        Path(report_path).write_text(
+            json.dumps({"version": APP_VERSION, "status": "passed"}), encoding="utf-8"
+        )
     return 0
 
 
