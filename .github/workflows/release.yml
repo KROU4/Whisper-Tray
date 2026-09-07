@@ -53,9 +53,15 @@ jobs:
       # Package first: --test updates the working bundle with test-only sources.
       # The production installers in dist are already sealed and stay unchanged.
       - name: Verify bundled Qt and worker spawn, cancellation, and restart
-        if: matrix.platform != 'linux'
+        if: matrix.platform == 'windows'
         timeout-minutes: 5
         run: python -m briefcase run ${{ matrix.platform }} --test --no-input
+      - name: Verify macOS bundle with the test-only log bridge
+        if: matrix.platform == 'macOS'
+        timeout-minutes: 5
+        # --test updates sources but does not install test_requires unless -r
+        # is requested. Production DMG/PKG files have already been sealed.
+        run: python -m briefcase run macOS --test --update-requirements --no-input
       - name: Verify Linux bundle against its system Python runtime
         if: matrix.platform == 'linux'
         timeout-minutes: 5
