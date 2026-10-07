@@ -1059,3 +1059,19 @@ def test_advanced_settings_are_collapsed_until_requested(view, qt_app):
     qt_app.processEvents()
     assert dialog.rec_lang.isVisible()
     dialog.close()
+
+
+def test_hotkey_failure_reaches_the_tray_when_the_window_is_hidden(view, qt_app, balloons):
+    view.window.hide()
+    view.notify("Hotkey unavailable", "Could not register the global shortcut.")
+    view.drain_worker_events()
+    assert view.status is ViewState.ERROR
+    assert len(balloons) == 1
+    assert view.hud.text == HUD_ERROR_KEYS["hotkey"][view.lang]
+
+
+def test_busy_message_is_localized(view, qt_app, balloons):
+    view.notify("WhisperTray", "Already processing the previous task")
+    view.drain_worker_events()
+    assert view.status_label.text() == view.t["already_processing"]
+    assert balloons == []

@@ -19,7 +19,7 @@ DTYPE = "float32"
 MAX_DURATION_SECONDS = 10 * 60
 WARNING_SECONDS = 30
 # Quieter than this is background noise; used to skip recordings without speech.
-VOICE_RMS = 0.005
+VOICE_RMS = 0.003
 
 
 class RecordingError(RuntimeError):

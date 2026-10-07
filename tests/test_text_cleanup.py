@@ -26,7 +26,9 @@ class FakeClient:
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):
             raise reply
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=reply))])
+        content, finish = reply if isinstance(reply, tuple) else (reply, "stop")
+        message = SimpleNamespace(content=content)
+        return SimpleNamespace(choices=[SimpleNamespace(message=message, finish_reason=finish)])
 
 
 RAW = "ну короче э мне нужно чтобы ты сделал отчёт по продажам за сентябрь и отправил его до пятницы"
@@ -154,8 +156,8 @@ def test_polish_skips_short_phrases_without_a_request():
 
 
 def test_polish_gives_first_model_a_short_timeout_and_returns_one_line():
-    client = FakeClient([StatusError(503), "Первое предложение.\n\nВторое предложение."])
-    assert TextCleaner(lambda: client).polish(RAW) == "Первое предложение. Второе предложение."
+    client = FakeClient([StatusError(503), CLEAN.replace(" за сентябрь", "\n\nза сентябрь")])
+    assert TextCleaner(lambda: client).polish(RAW) == CLEAN
     assert client.calls[0]["timeout"] <= text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS
     assert client.calls[1]["timeout"] > text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS
 
@@ -180,3 +182,16 @@ def test_privacy_profile_never_polishes_even_with_stale_cloud_flag():
     transcriber.config = {"profile": "privacy", "ai_cleanup": True}
     assert transcriber.polish(RAW) == RAW
     assert client.calls == []
+
+
+def test_polish_rejects_an_answer_to_a_short_question():
+    question = "сколько будет два плюс два"
+    client = FakeClient(["Два плюс два равно четырём, это базовая арифметика."])
+    assert TextCleaner(lambda: client).polish(question) == question
+
+
+def test_polish_rejects_truncated_and_summarized_output():
+    truncated = FakeClient([(CLEAN, "length")])
+    assert TextCleaner(lambda: truncated).polish(RAW) == RAW
+    summary = FakeClient(["Нужен отчёт по продажам до пятницы."])
+    assert TextCleaner(lambda: summary).polish(RAW) == RAW

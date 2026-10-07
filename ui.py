@@ -352,8 +352,8 @@ def window_style() -> str:
     return APP_STYLE + (
         "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; "
         "width: 28px; border: none; }"
-        f"QComboBox::down-arrow {{ image: url({enabled.as_posix()}); width: 12px; height: 12px; }}"
-        f"QComboBox::down-arrow:disabled {{ image: url({disabled.as_posix()}); }}"
+        f"QComboBox::down-arrow {{ image: url(\"{enabled.as_posix()}\"); width: 12px; height: 12px; }}"
+        f"QComboBox::down-arrow:disabled {{ image: url(\"{disabled.as_posix()}\"); }}"
     )
 
 
@@ -736,6 +736,8 @@ HUD_ERROR_KEYS = {
     "transcription_failed": {"ru": "Речь не распознана", "en": "Couldn’t transcribe"},
     "save_failed": {"ru": "Файл не сохранён", "en": "File not saved"},
     "clipboard_fallback": {"ru": "Скопировано — вставьте вручную", "en": "Copied — paste manually"},
+    "hotkey": {"ru": "Горячая клавиша недоступна", "en": "Hotkey unavailable"},
+    "microphone": {"ru": "Микрофон недоступен", "en": "Microphone unavailable"},
     "generic": {"ru": "Что-то пошло не так", "en": "Something went wrong"},
 }
 
@@ -2719,6 +2721,13 @@ class HistoryDialog(QDialog):
 
 
 ERROR_TITLES = {"error", "ошибка", "hotkey error", "hotkey unavailable", "microphone unavailable"}
+# Without a working hotkey a tray-only app looks dead, so these still reach the tray.
+HOTKEY_TITLES = {"hotkey error", "hotkey unavailable"}
+BUSY_MESSAGES = {
+    "already processing the previous task",
+    "already processing the previous dictation",
+    "a file transcription is already running",
+}
 FILE_SAVED_TITLES = {"транскрибировано успешно", "transcribed successfully"}
 
 
@@ -3069,12 +3078,19 @@ class WhisperTrayUi:
         line). Only a finished file transcript earns a system notification.
         """
         kind = title.strip().lower()
+        if message.strip().lower() in BUSY_MESSAGES:
+            message = self.t["already_processing"]
         if kind in FILE_SAVED_TITLES:
             self.set_state(self.status, message, update_hud=False)
             self.tray.showMessage(title, message, QSystemTrayIcon.Information, 4000)
         elif kind in ERROR_TITLES:
             self._retry_available = False
-            self.set_state(ViewState.ERROR, message)
+            short_key = "hotkey" if kind in HOTKEY_TITLES else "microphone" if kind == "microphone unavailable" else None
+            short = HUD_ERROR_KEYS[short_key][self.lang] if short_key else None
+            self.set_state(ViewState.ERROR, message, hud_message=short)
+            hud_enabled = self.state.config.get("hud", {}).get("enabled", True)
+            if kind in HOTKEY_TITLES and (not self.window.isVisible() or not hud_enabled):
+                self.tray.showMessage(APP_NAME, short or message, QSystemTrayIcon.Warning, 6000)
         else:
             self.set_state(self.status, message, update_hud=False)
 

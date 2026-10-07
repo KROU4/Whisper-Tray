@@ -79,7 +79,8 @@ class HotkeyListener:
     def _start_recording(self):
         jobs = getattr(self.state, "jobs", None)
         if jobs is not None:
-            if not jobs.start_recording():
+            # A microphone failure is already published by the controller.
+            if not jobs.start_recording() and getattr(jobs, "busy", False):
                 self._notify("WhisperTray", "Already processing the previous task")
             return
         with self.operation_lock:

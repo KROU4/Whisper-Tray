@@ -24,7 +24,7 @@ RETRY_TTL_SECONDS = 5 * 60
 CANCEL_GRACE_SECONDS = 2.0
 CLOUD_JOB_BUDGET_SECONDS = 3 * 60
 # Less voiced audio than this is an accidental tap or silence, not speech.
-MIN_VOICED_SECONDS = 0.25
+MIN_VOICED_SECONDS = 0.15
 
 
 class InferenceWorkerClient:
@@ -292,6 +292,7 @@ class JobController:
             self._active["path"] = path
         voiced = getattr(recorder, "voiced_seconds", None)
         if isinstance(voiced, (int, float)) and voiced < MIN_VOICED_SECONDS:
+            logger.info("Recording has %.2fs of voiced audio; not sending it", voiced)
             # Whisper invents phrases for silence; keep the audio for Retry instead.
             self._terminal_error(job_id, "dictation", "empty_audio", "No speech was detected")
             return True

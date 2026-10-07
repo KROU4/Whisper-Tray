@@ -47,14 +47,22 @@ def should_polish(config: dict) -> bool:
     return config.get("profile") == "speed" and bool(config.get("ai_cleanup", True))
 
 
+_WORD_RE = re.compile(r"\w{4,}")
+# Share of the speaker's longer words a faithful cleanup keeps; fillers are mostly short.
+MIN_KEPT_WORDS = 0.6
+
+
 def _plausible(original: str, cleaned: str) -> bool:
-    """Reject answers, refusals and truncations instead of inserting them."""
+    """Reject answers, summaries and truncations instead of inserting them."""
     if not cleaned:
         return False
     source = len(original)
-    if source < 40:
-        return len(cleaned) <= max(source * 3, 80)
-    return source * 0.3 <= len(cleaned) <= source * 1.6 + 40
+    limit = source * 1.5 + 15 if source < 40 else source * 1.6 + 40
+    if not source * 0.5 <= len(cleaned) <= limit:
+        return False
+    words = set(_WORD_RE.findall(original.lower()))
+    kept = words & set(_WORD_RE.findall(cleaned.lower()))
+    return not words or len(kept) >= len(words) * MIN_KEPT_WORDS
 
 
 class TextCleaner:
@@ -94,7 +102,11 @@ class TextCleaner:
                     timeout=min(FIRST_MODEL_TIMEOUT_SECONDS if index == 0 else REQUEST_TIMEOUT_SECONDS, remaining),
                     extra_body={"reasoning_effort": "none" if model.startswith("qwen/") else "low"},
                 )
-                cleaned = single_line(_TAG_RE.sub("", response.choices[0].message.content or ""))
+                choice = response.choices[0]
+                cleaned = single_line(_TAG_RE.sub("", choice.message.content or ""))
+                # A token-limited answer is cut off mid-text; never insert it.
+                if getattr(choice, "finish_reason", "stop") not in (None, "stop"):
+                    cleaned = ""
             except Exception as exc:
                 status = getattr(exc, "status_code", None)
                 logger.warning("AI cleanup with %s failed (status=%s, %s)", model, status, type(exc).__name__)
