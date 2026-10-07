@@ -30,7 +30,8 @@ Rewrite it as clean written text in the same language (never translate):
 Output only the cleaned text, without quotes, tags or explanations."""
 
 _TAG_RE = re.compile(r"</?transcript>", re.IGNORECASE)
-_LINE_BREAK_RE = re.compile(r"\s*[\r\n\t]+\s*")
+# pynput types control and separator characters as Enter, Tab, Escape and the like.
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f\x85  ]+")
 # Short phrases gain little from polishing and are most likely to be "answered".
 MIN_CLEANUP_WORDS = 4
 FIRST_MODEL_TIMEOUT_SECONDS = 4.0
@@ -38,7 +39,7 @@ FIRST_MODEL_TIMEOUT_SECONDS = 4.0
 
 def single_line(text: str) -> str:
     """Typed line breaks become Enter presses, which send chat messages early."""
-    return _LINE_BREAK_RE.sub(" ", text).strip()
+    return " ".join(_CONTROL_RE.sub(" ", text).split())
 
 
 def should_polish(config: dict) -> bool:
@@ -63,7 +64,8 @@ class TextCleaner:
         self._models = models
 
     def polish(self, text: str, language: str | None = None) -> str:
-        source = (text or "").strip()
+        # Dictated tags must not close the transcript boundary early.
+        source = _TAG_RE.sub("", text or "").strip()
         if len(source.split()) < MIN_CLEANUP_WORDS or len(source) > MAX_CLEANUP_CHARS:
             return text
         try:

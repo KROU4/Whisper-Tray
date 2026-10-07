@@ -345,6 +345,7 @@ class Transcriber:
 
     def transcribe(self, audio: np.ndarray | str | Path, language=None) -> str:
         """Transcribe only through the selected profile; fallback is explicit and local."""
+        self.last_backend = None
         self._checkpoint()
         if self._backend() == GROQ_BACKEND:
             cloud_bytes = self._read_cloud_file(audio) if isinstance(audio, (str, Path)) else _audio_to_wav_bytes(audio)
@@ -366,7 +367,12 @@ class Transcriber:
         from text_cleanup import TextCleaner, should_polish
 
         # Skip after a local fallback: Groq just failed, and Privacy never polishes.
-        if not text or self.last_backend != GROQ_BACKEND or not should_polish(self.config):
+        if (
+            not text
+            or self._backend() != GROQ_BACKEND
+            or self.last_backend != GROQ_BACKEND
+            or not should_polish(self.config)
+        ):
             return text
         self._progress("polishing")
         polished = TextCleaner(self._get_groq_client, cancelled=self.cancelled).polish(text, language=language)
