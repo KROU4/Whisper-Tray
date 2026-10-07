@@ -33,9 +33,12 @@ from PySide6.QtWidgets import (  # noqa: E402
 from config_store import DEFAULT_CONFIG  # noqa: E402
 from history_store import HistoryStore  # noqa: E402
 from ui import (  # noqa: E402
+    ERROR_KEYS,
+    HUD_ERROR_KEYS,
     HistoryDialog,
     HotkeyCaptureDialog,
     SettingsDialog,
+    StatusHud,
     ViewState,
     WhisperTrayUi,
     hotkey_from_key_event,
@@ -765,7 +768,12 @@ def test_settings_and_onboarding_fit_small_scaled_screen_with_scroll(view, qt_ap
 
     assert settings.height() <= 552
     assert settings.maximumHeight() <= 576
+    # Tabs and buttons stay pinned; each page scrolls on its own when it overflows.
+    settings.advanced_toggle.setChecked(True)
+    qt_app.processEvents()
+    assert settings.advanced_panel.isVisible()
     assert settings.settings_scroll.verticalScrollBar().maximum() > 0
+    assert settings.tabs.tabBar().isVisible()
     assert settings.findChild(QDialogButtonBox).isVisible()
     settings.close()
 
@@ -825,9 +833,229 @@ def test_recording_pulse_respects_reduce_motion(view, qt_app):
     view.set_state(ViewState.RECORDING)
     qt_app.processEvents()
     assert view.recording_pulse.timer.isActive()
-    assert view.hud.pulse.timer.isActive()
+    assert view.hud.timer.isActive()
 
     view.state.config["hud"]["reduce_motion"] = True
     view.render_status()
     assert not view.recording_pulse.timer.isActive()
-    assert not view.hud.pulse.timer.isActive()
+    assert not view.hud.timer.isActive()
+
+
+@pytest.fixture
+def balloons(view, monkeypatch):
+    shown = []
+    monkeypatch.setattr(view.tray, "showMessage", lambda *args: shown.append(args))
+    return shown
+
+
+def test_hud_is_a_translucent_non_activating_pill(view, qt_app):
+    hud = view.hud
+    flags = hud.windowFlags()
+
+    assert hud.testAttribute(Qt.WA_TranslucentBackground)
+    assert hud.testAttribute(Qt.WA_ShowWithoutActivating)
+    for flag in (Qt.Tool, Qt.FramelessWindowHint, Qt.WindowStaysOnTopHint, Qt.WindowDoesNotAcceptFocus):
+        assert flags & flag
+
+    view.set_state(ViewState.ERROR, "detail", "Short")
+    short_width = hud.width()
+    view.set_state(ViewState.ERROR, "detail", "A considerably longer one-line message for the overlay " * 4)
+    long_width = hud.width()
+    shadow = StatusHud.SHADOW * 2
+    assert StatusHud.MIN_WIDTH + shadow <= short_width < long_width <= StatusHud.MAX_WIDTH + shadow
+    assert hud.height() == StatusHud.HEIGHT + shadow
+
+
+def test_hud_inserted_and_error_states_hide_automatically(view, qt_app):
+    view.set_state(ViewState.INSERTED)
+    assert view.hud.isVisible()
+    assert view.hud.hide_timer.isActive()
+    assert view.hud.hide_timer.interval() == StatusHud.AUTO_HIDE_MS[ViewState.INSERTED]
+    view.hud.hide_timer.timeout.emit()
+    assert not view.hud.isVisible()
+
+    view._handle_job_event({"job_id": "e1", "status": "error", "code": "network"})
+    assert view.hud.isVisible()
+    assert view.hud.hide_timer.interval() == StatusHud.AUTO_HIDE_MS[ViewState.ERROR]
+    view.hud.hide_timer.timeout.emit()
+    assert not view.hud.isVisible()
+    # The detailed message stays in the main window after the HUD is gone.
+    assert view.status is ViewState.ERROR
+    assert view.status_label.text() == ERROR_KEYS["network"]["en"]
+
+    view.set_state(ViewState.RECORDING)
+    assert not view.hud.hide_timer.isActive()
+
+
+def test_hud_error_is_a_short_friendly_line_while_window_keeps_details(view, qt_app):
+    view._handle_job_event({"job_id": "e2", "status": "error", "code": "microphone_unavailable"})
+
+    assert view.hud.text == HUD_ERROR_KEYS["microphone_unavailable"]["en"] == "Microphone unavailable"
+    assert view.status_label.text() == ERROR_KEYS["microphone_unavailable"]["en"]
+    assert len(view.hud.text) < len(view.status_label.text())
+
+    view.state.tk_queue.put(("error", "Some verbose worker exception text that should not be in the HUD"))
+    view.drain_worker_events()
+    assert view.hud.text == HUD_ERROR_KEYS["generic"]["en"]
+    assert "verbose worker" in view.status_label.text()
+    assert all(entry.keys() == {"ru", "en"} for entry in HUD_ERROR_KEYS.values())
+    assert set(ERROR_KEYS) - {"cancelled"} <= set(HUD_ERROR_KEYS)
+
+
+@pytest.mark.parametrize("payload", ({"status": "cancelled"}, {"status": "error", "code": "cancelled"}))
+def test_cancellation_simply_hides_the_hud(view, qt_app, payload):
+    view._handle_job_event({"job_id": "c1", "status": "recording", "kind": "dictation"})
+    assert view.hud.isVisible()
+
+    view._handle_job_event({"job_id": "c1", "kind": "dictation", **payload})
+
+    assert view.status is ViewState.IDLE
+    assert not view.hud.isVisible()
+    assert not view.retry_button.isVisible()
+
+
+def test_errors_and_routine_info_do_not_raise_tray_balloons(view, qt_app, balloons, tmp_path):
+    view.notify("Error", "Could not transcribe: boom")
+    view.notify("WhisperTray", "Already processing the previous task")
+    view.notify("Microphone unavailable", "Choose another microphone")
+    view.state.tk_queue.put(("error", "Network unavailable"))
+    view.state.tk_queue.put(("job", {"job_id": "b1", "status": "error", "code": "cloud_auth"}))
+    view.drain_worker_events()
+    assert balloons == []
+    assert view.status is ViewState.ERROR
+
+    output = tmp_path / "transcript.txt"
+    view.state.tk_queue.put(
+        ("job", {"job_id": "b2", "status": "idle", "kind": "file", "text": "Done", "output_path": str(output)})
+    )
+    view.drain_worker_events()
+    assert len(balloons) == 1
+    assert str(output) in balloons[0][1]
+
+    view.notify("Transcribed successfully", f"File: {output}")
+    view.drain_worker_events()
+    assert len(balloons) == 2
+
+
+def test_close_to_tray_explains_itself_once_per_run(view, balloons):
+    class Event:
+        def ignore(self):
+            pass
+
+    view.close_to_tray(Event())
+    view.close_to_tray(Event())
+
+    assert len(balloons) == 1
+    assert "tray" in balloons[0][1]
+    assert not view.window.isVisible()
+
+
+def test_recording_snapshot_feeds_hud_timer_and_level(view, qt_app):
+    class Jobs:
+        current_job_id = "r1"
+        busy = True
+
+        def recording_snapshot(self):
+            return {"elapsed": 73, "level": 0.6, "silent_seconds": 0}
+
+    view.state.jobs = Jobs()
+    view._handle_job_event({"job_id": "r1", "status": "recording", "kind": "dictation"})
+    view.drain_worker_events()
+
+    assert view.hud.elapsed == 73
+    assert view.hud.level == pytest.approx(0.6)
+    assert view.hud._trailing_width() > 0
+    assert not view.hud.grab().isNull()  # paints the timer and level meter
+
+
+def test_polishing_stage_is_labelled_in_window_and_hud(view, qt_app):
+    view._handle_job_event({"job_id": "p1", "status": "processing", "kind": "dictation", "stage": "polishing"})
+
+    assert view.status_label.text() == "Polishing text…"
+    assert view.hud.text == "Polishing text…"
+
+
+def test_hud_respects_disabled_and_position_settings(view, qt_app):
+    positions = {}
+    for position in ("bottom_left", "active_monitor", "bottom_right"):
+        view.state.config["hud"]["position"] = position
+        view.set_state(ViewState.RECORDING)
+        positions[position] = view.hud.x() + view.hud.width() / 2
+    assert positions["bottom_left"] < positions["active_monitor"] < positions["bottom_right"]
+
+    view.state.config["hud"]["enabled"] = False
+    view.set_state(ViewState.PROCESSING)
+    assert not view.hud.isVisible()
+
+
+def test_ai_cleanup_is_greyed_out_in_privacy_and_saved_in_speed(view, qt_app, monkeypatch):
+    monkeypatch.setattr("platform_integration.parse_hotkey", lambda value: value)
+    monkeypatch.setattr(SettingsDialog, "_has_groq_key", staticmethod(lambda: True))
+    view.state.config["ai_cleanup"] = True
+    dialog = SettingsDialog(view)
+
+    dialog.profile.setCurrentIndex(dialog.profile.findData("privacy"))
+    assert dialog.ai_cleanup.isChecked()
+    assert not dialog.ai_cleanup.isEnabled()
+    assert "Speed mode" in dialog.ai_cleanup_hint.text()
+
+    dialog.profile.setCurrentIndex(dialog.profile.findData("speed"))
+    assert dialog.ai_cleanup.isEnabled()
+    assert dialog.ai_cleanup.text() == "Polish text with AI"
+    assert "punctuation" in dialog.ai_cleanup_hint.text()
+
+    dialog.ai_cleanup.setChecked(False)
+    dialog.save()
+    qt_app.processEvents()
+    assert view.state.config["ai_cleanup"] is False
+    assert view.state.config["profile"] == "speed"
+
+
+def test_ai_cleanup_defaults_on_and_is_offered_in_onboarding(view, qt_app, monkeypatch):
+    monkeypatch.setattr("platform_integration.parse_hotkey", lambda value: value)
+    view.state.config.pop("ai_cleanup", None)
+    view.state.config["hud"]["position"] = "bottom_left"
+    dialog = SettingsDialog(view, onboarding=True)
+
+    assert "AI" in dialog.speed_card.accessibleDescription()
+    assert dialog.ai_cleanup.isChecked()
+    assert not dialog.ai_cleanup.isEnabled()  # privacy is the default profile
+    dialog.speed_card.click()
+    assert dialog.ai_cleanup.isEnabled()
+    dialog.privacy_card.click()
+    dialog.save()
+
+    assert view.state.config["ai_cleanup"] is True
+    # Finishing onboarding must not reset the overlay position it does not show.
+    assert view.state.config["hud"]["position"] == "bottom_left"
+
+
+def test_settings_keep_hud_position_choices_including_center(view, qt_app, monkeypatch):
+    monkeypatch.setattr("platform_integration.parse_hotkey", lambda value: value)
+    dialog = SettingsDialog(view)
+    values = [dialog.position.itemData(index) for index in range(dialog.position.count())]
+    assert values == ["active_monitor", "bottom_right", "bottom_left"]
+    assert dialog.position.currentData() == "active_monitor"
+
+    dialog.hud_enabled.setChecked(False)
+    assert not dialog.position.isEnabled()
+    dialog.save()
+    assert view.state.config["hud"] == {
+        "enabled": False,
+        "position": "active_monitor",
+        "high_contrast": False,
+        "reduce_motion": False,
+    }
+
+
+def test_advanced_settings_are_collapsed_until_requested(view, qt_app):
+    dialog = SettingsDialog(view)
+    dialog.show()
+    qt_app.processEvents()
+
+    assert not dialog.advanced_panel.isVisible()
+    assert not dialog.rec_lang.isVisible()
+    dialog.advanced_toggle.click()
+    qt_app.processEvents()
+    assert dialog.rec_lang.isVisible()
+    dialog.close()
