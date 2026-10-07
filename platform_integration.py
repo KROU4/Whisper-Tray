@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from collections.abc import Callable
 
 
@@ -165,10 +166,21 @@ class GlobalHotkey:
 
 
 class TextInserter:
-    """Inject text through pynput; use clipboard only as an explicit fallback."""
+    """Type single-line text through pynput; paste multi-line text.
 
-    def __init__(self, keyboard_module=None):
+    Typed line breaks are real key presses: Enter, even with Shift, runs
+    commands in terminals, confirms spreadsheet cells and submits forms.
+    Pasting delivers the line breaks as text instead, which is also how
+    Superwhisper and VoiceInk insert formatted dictation. The previous
+    clipboard text is restored afterwards.
+    """
+
+    PASTE_SETTLE_SECONDS = 0.4
+
+    def __init__(self, keyboard_module=None, clipboard=None, sleep=None):
         self._keyboard = keyboard_module
+        self._clipboard = clipboard
+        self._sleep = sleep or time.sleep
 
     def insert(self, text: str, cancelled=None) -> str:
         if not text:
@@ -176,23 +188,48 @@ class TextInserter:
         try:
             keyboard = self._keyboard or _pynput_keyboard()
             controller = keyboard.Controller()
+            if "\n" in text:
+                return self._paste(keyboard, controller, text, cancelled)
             for character in text:
                 if cancelled is not None and cancelled():
                     self._copy_fallback(text)
                     return "cancelled"
-                if character == "\n":
-                    # Plain Enter sends chat messages and submits forms;
-                    # Shift+Enter starts a new line in chats and editors.
-                    with controller.pressed(keyboard.Key.shift):
-                        controller.press(keyboard.Key.enter)
-                        controller.release(keyboard.Key.enter)
-                else:
-                    controller.type(character)
+                controller.type(character)
             return "inserted"
         except PlatformIntegrationError:
             return self._copy_fallback(text)
         except Exception:
             return self._copy_fallback(text)
+
+    def _clipboard_module(self):
+        if self._clipboard is not None:
+            return self._clipboard
+        import pyperclip
+
+        return pyperclip
+
+    def _paste(self, keyboard, controller, text: str, cancelled) -> str:
+        clipboard = self._clipboard_module()
+        try:
+            previous = clipboard.paste()
+        except Exception:
+            previous = None
+        clipboard.copy(text)
+        if cancelled is not None and cancelled():
+            # Leave the complete text on the clipboard for a manual paste.
+            return "cancelled"
+        modifier = keyboard.Key.cmd if sys.platform == "darwin" else keyboard.Key.ctrl
+        with controller.pressed(modifier):
+            controller.press("v")
+            controller.release("v")
+        # The target application reads the clipboard asynchronously.
+        self._sleep(self.PASTE_SETTLE_SECONDS)
+        if isinstance(previous, str):
+            try:
+                clipboard.copy(previous)
+            except Exception:
+                pass
+        return "inserted"
 
     @staticmethod
     def _copy_fallback(text: str) -> str:

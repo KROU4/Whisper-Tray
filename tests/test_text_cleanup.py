@@ -224,3 +224,40 @@ def test_polish_rejects_truncated_and_summarized_output():
     assert TextCleaner(lambda: truncated).polish(RAW) == RAW
     summary = FakeClient(["Нужен отчёт по продажам до пятницы."])
     assert TextCleaner(lambda: summary).polish(RAW) == RAW
+
+
+def test_plausibility_accepts_latin_spellings_and_spoken_numbers():
+    from text_cleanup import _plausible
+
+    assert _plausible("закинь это в гитхаб потом в ноушен и в слак", "Закинь это в GitHub, потом в Notion и в Slack.")
+    assert _plausible(
+        "открой вскод и запусти пайтон скрипт через докер компоуз",
+        "Открой VS Code и запусти Python-скрипт через Docker Compose.",
+    )
+    assert _plausible(
+        "сколько будет двадцать пять процентов от трёх тысяч рублей", "Сколько будет 25% от 3 000 рублей?"
+    )
+
+
+def test_plausibility_rejects_answers_to_dictated_questions():
+    from text_cleanup import _plausible
+
+    question = "what is the capital of france and how many people live there"
+    assert not _plausible(question, "The capital of France is Paris, and about 2.1 million people live there.")
+    assert not _plausible(
+        "напиши мне письмо начальнику что я заболел", "Конечно! Вот письмо: я заболел и завтра не приду."
+    )
+    assert _plausible(question, "What is the capital of France, and how many people live there?")
+
+
+def test_bold_stripping_keeps_dunder_names_and_powers():
+    raw = "метод init вызывается при создании объекта а два в десятой степени это тысяча двадцать четыре"
+    reply = "Метод **__init__** вызывается при создании объекта, а 2**10 — это 1024."
+    client = FakeClient([reply])
+    assert TextCleaner(lambda: client).polish(raw) == "Метод __init__ вызывается при создании объекта, а 2**10 — это 1024."
+
+
+def test_truncated_or_implausible_answers_fall_through_to_the_next_model():
+    client = FakeClient([(CLEAN, "length"), "Конечно, вот отчёт.", CLEAN])
+    assert TextCleaner(lambda: client).polish(RAW) == CLEAN
+    assert [call["model"] for call in client.calls] == list(text_cleanup.CLEANUP_MODELS)

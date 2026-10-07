@@ -70,8 +70,10 @@ language model using the same key. The rules follow dedicated dictation apps
   lists. Spoken commands such as "new paragraph", "new line", and "comma" are
   applied rather than typed.
 
-Line breaks are typed as Shift+Enter, which starts a new line in chat apps
-instead of sending the message. The app uses `qwen/qwen3.8-27b` (usually about
+Text with paragraphs or lists is pasted through the clipboard (Ctrl+V, Cmd+V on
+macOS), as Superwhisper and VoiceInk do: a line break never presses Enter, so it
+cannot send a chat message or run a terminal command. The previous clipboard
+text is restored; single-line dictation is typed as before. The app uses `qwen/qwen3.8-27b` (usually about
 half a second), falling back to `openai/gpt-oss-20b` and `openai/gpt-oss-120b`
 on rate limits. Compare models on your own dictations with
 `tools/eval_polish.py`.
@@ -170,7 +172,9 @@ shown in the app range from about 75 MB (`tiny`) to 2.9 GB (`large`).
 | Linux | `$XDG_DATA_HOME/WhisperTray` or `~/.local/share/WhisperTray` |
 
 This directory holds settings, technical logs, optional history, and file
-transcription results. Logs exclude audio, transcript text, and credentials.
+transcription results. The app log is `whisper_tray.log`; the recognition and
+AI formatting process writes `inference.log`. Logs exclude audio, transcript
+text, and credentials.
 
 ## Development
 

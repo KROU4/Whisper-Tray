@@ -26,7 +26,8 @@ REQUEST_TIMEOUT_SECONDS = 8.0
 FIRST_MODEL_TIMEOUT_SECONDS = 4.0
 # Long dictations need more generation time; seconds added per 1000 characters.
 SECONDS_PER_1000_CHARS = 2.0
-# Longer dictations would exceed the free-tier token budget in one request.
+# Prompt, examples, transcript and the reserved completion must fit the free
+# tier's 8000 tokens per minute in one request; 6000 characters stay below it.
 MAX_CLEANUP_CHARS = 6000
 # Short phrases gain little from formatting and are most likely to be "answered".
 MIN_CLEANUP_WORDS = 4
@@ -82,19 +83,49 @@ EXAMPLES = (
 
 _TAG_RE = re.compile(r"</?transcript>", re.IGNORECASE)
 _REASONING_RE = re.compile(r"(?s)<(think|thinking|reasoning)>.*?</\1>")
-_BOLD_RE = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")
+# Markdown bold only around whole phrases: never touch __init__ or 2**10.
+_BOLD_RE = re.compile(r"(?<![\w*])\*\*(?=\S)(.+?)(?<=\S)\*\*(?![\w*])")
 # Everything pynput would type as a control key, except the line feed we keep.
 _CONTROL_RE = re.compile(r"[\x00-\x09\x0b-\x1f\x7f\x85]")
-_LINE_SEPARATOR_RE = re.compile(r"\r\n?|[  ]")
+_LINE_SEPARATOR_RE = re.compile(r"\r\n?|[\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]")
 _EXTRA_BLANK_LINES_RE = re.compile(r"\n{3,}")
+_LIST_MARKER_RE = re.compile(r"(?m)^(?:\d+\.|-) ")
 
 _WORD_RE = re.compile(r"[^\W\d_]{4,}")
+_LATIN_RE = re.compile(r"[a-z]")
 # Russian inflection changes endings when grammar is fixed; compare word stems.
 STEM_LENGTH = 5
 # A faithful edit mostly reuses the speaker's words; an answer brings its own.
 MIN_OUTPUT_FROM_SOURCE = 0.6
 # Fillers, self-corrections and digits remove words, but never most of them.
 MIN_SOURCE_KEPT = 0.4
+# Latin spellings of dictated Cyrillic names (гитхаб -> GitHub) are expected edits.
+TRANSLITERATED_WEIGHT = 0.3
+# Spoken numerals and units become digits, so they legitimately disappear.
+NUMERAL_STEMS = frozenset(
+    {
+        "один", "одна", "одно", "одног", "одном", "одной", "четыр", "шесть", "восем", "девят", "десят",
+        "одинн", "двена", "трина", "пятна", "шестн", "семна", "восем", "девят", "двадц", "тридц",
+        "сорок", "пятьд", "шести", "семьд", "восьм", "девян", "сотни", "двухс", "двест", "трист",
+        "четыр", "пятьс", "шестс", "семьс", "восьс", "девят", "тысяч", "милли", "милли", "проце",
+        "часов", "часа", "минут", "секун", "полов", "утра", "вечер", "ночи",
+        "three", "seven", "eight", "eleve", "twelv", "thirt", "fourt", "fifte", "sixte", "seven",
+        "eight", "ninet", "twent", "forty", "fifty", "sixty", "hundr", "thous", "milli", "billi",
+        "perce", "clock", "minut",
+    }
+)
+# Openers that start an assistant's reply rather than a dictated message.
+ANSWER_OPENERS = (
+    "конечно", "разумеется", "вот ", "ответ:", "sure", "certainly", "of course", "here is", "here's", "answer:",
+)
+SHORT_SOURCE_CHARS = 80
+QUESTION_WORDS = frozenset(
+    {
+        "как", "что", "сколько", "почему", "зачем", "когда", "где", "куда", "откуда", "кто", "какой", "какая",
+        "какое", "какие", "чей", "чья", "можешь", "можете",
+        "what", "how", "why", "when", "where", "who", "which", "could", "does",
+    }
+)
 
 
 def _stems(text: str) -> set[str]:
@@ -102,10 +133,10 @@ def _stems(text: str) -> set[str]:
 
 
 def typeable(text: str) -> str:
-    """Normalize text for typing: line feeds survive, other control keys do not.
+    """Normalize text for insertion: line feeds survive, other control keys do not.
 
-    The inserter types each line feed as Shift+Enter, which starts a new line
-    in chats and editors without sending the message.
+    Multi-line results are pasted rather than typed, so their line feeds never
+    act as Enter presses.
     """
     text = _CONTROL_RE.sub(" ", _LINE_SEPARATOR_RE.sub("\n", text))
     lines = [" ".join(line.split()) for line in text.split("\n")]
@@ -117,21 +148,39 @@ def should_polish(config: dict) -> bool:
     return config.get("profile") == "speed" and bool(config.get("ai_cleanup", True))
 
 
+def _looks_like_answer(original: str, cleaned: str) -> bool:
+    lowered_source, lowered = original.lower().lstrip(), cleaned.lower().lstrip()
+    if any(lowered.startswith(opener) and not lowered_source.startswith(opener.strip()) for opener in ANSWER_OPENERS):
+        return True
+    # A short dictated question must stay a question; an answer drops the "?".
+    words = lowered_source.split()
+    asks = bool(words) and (words[0] in QUESTION_WORDS or "ли" in words[1:3])
+    return asks and len(original) <= SHORT_SOURCE_CHARS and "?" not in cleaned and not cleaned.rstrip().endswith(":")
+
+
 def _plausible(original: str, cleaned: str) -> bool:
     """Reject answers, summaries and truncations instead of inserting them."""
-    if not cleaned:
+    if not cleaned or _looks_like_answer(original, cleaned):
         return False
     source = len(original)
-    # List markers and blank lines add a few characters per line.
-    length = len(cleaned) - 3 * cleaned.count("\n")
+    # List markers add characters; line breaks replace spaces.
+    length = len(cleaned) - 3 * len(_LIST_MARKER_RE.findall(cleaned))
     limit = source * 1.5 + 15 if source < 40 else source * 1.6 + 40
     if not source * 0.5 <= length <= limit:
         return False
     source_stems, output_stems = _stems(original), _stems(cleaned)
     if not source_stems or not output_stems:
         return True
-    shared = len(source_stems & output_stems)
-    return shared >= len(output_stems) * MIN_OUTPUT_FROM_SOURCE and shared >= len(source_stems) * MIN_SOURCE_KEPT
+    shared = source_stems & output_stems
+    cyrillic_source = any(not _LATIN_RE.match(stem) for stem in source_stems)
+    new_weight = sum(
+        TRANSLITERATED_WEIGHT if cyrillic_source and _LATIN_RE.match(stem) else 1.0
+        for stem in output_stems - source_stems
+    )
+    if len(shared) < (len(shared) + new_weight) * MIN_OUTPUT_FROM_SOURCE:
+        return False
+    spoken = source_stems - NUMERAL_STEMS or source_stems
+    return len(shared & spoken) >= len(spoken) * MIN_SOURCE_KEPT
 
 
 def _completion_budget(source: str, model: str) -> int:
@@ -191,11 +240,9 @@ class TextCleaner:
                 choice = response.choices[0]
                 content = _REASONING_RE.sub("", choice.message.content or "")
                 # Typed asterisks are noise in every target app.
-                content = _BOLD_RE.sub(lambda match: match.group(1) or match.group(2), content)
+                content = _BOLD_RE.sub(lambda match: match.group(1), content)
                 cleaned = typeable(_TAG_RE.sub("", content))
-                # A token-limited answer is cut off mid-text; never insert it.
-                if getattr(choice, "finish_reason", "stop") not in (None, "stop"):
-                    cleaned = ""
+                finish = getattr(choice, "finish_reason", "stop")
             except Exception as exc:
                 status = getattr(exc, "status_code", None)
                 logger.warning("AI formatting with %s failed (status=%s, %s)", model, status, type(exc).__name__)
@@ -204,12 +251,15 @@ class TextCleaner:
                 continue
             if self._cancelled():
                 break
+            if finish not in (None, "stop"):
+                # A token-limited answer is cut off mid-text; never insert it.
+                logger.warning("AI formatting with %s was truncated (%s); trying the next model", model, finish)
+                continue
             if _plausible(source, cleaned):
                 logger.info(
                     "AI formatting with %s completed in %.2fs (%d -> %d chars, %d lines)",
                     model, time.monotonic() - start, len(source), len(cleaned), cleaned.count("\n") + 1,
                 )
                 return cleaned
-            logger.warning("AI formatting with %s returned an implausible result; keeping the transcript", model)
-            return text
+            logger.warning("AI formatting with %s returned an implausible result; trying the next model", model)
         return text
