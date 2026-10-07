@@ -35,10 +35,14 @@ class SensitiveDataFilter(logging.Filter):
         return True
 
 
-def configure_logging(log_dir: Path, *, level: int = logging.INFO) -> Path:
-    """Configure bounded file logging and return the active log path."""
+def configure_logging(log_dir: Path, *, level: int = logging.INFO, filename: str = "whisper_tray.log") -> Path:
+    """Configure bounded file logging and return the active log path.
+
+    Each process needs its own file: rotating one file from two processes
+    fails on Windows, where an open log cannot be renamed.
+    """
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "whisper_tray.log"
+    log_file = log_dir / filename
     handler = RotatingFileHandler(log_file, encoding="utf-8", maxBytes=1_000_000, backupCount=3)
     handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
     handler.addFilter(SensitiveDataFilter())

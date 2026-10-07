@@ -160,3 +160,32 @@ def test_linux_autostart_creates_and_removes_desktop_entry(monkeypatch, tmp_path
     assert autostart.is_enabled() is True
     assert autostart.disable() is True
     assert not target.exists()
+
+
+def test_text_inserter_types_line_feeds_as_shift_enter():
+    events = []
+
+    class Controller:
+        def type(self, character):
+            events.append(character)
+
+        def press(self, key):
+            events.append(f"press:{key}")
+
+        def release(self, key):
+            events.append(f"release:{key}")
+
+        def pressed(self, key):
+            from contextlib import contextmanager
+
+            @contextmanager
+            def hold():
+                events.append(f"hold:{key}")
+                yield
+                events.append(f"unhold:{key}")
+
+            return hold()
+
+    keyboard = SimpleNamespace(Controller=Controller, Key=SimpleNamespace(shift="SHIFT", enter="ENTER"))
+    assert platform_integration.TextInserter(keyboard).insert("a\nb") == "inserted"
+    assert events == ["a", "hold:SHIFT", "press:ENTER", "release:ENTER", "unhold:SHIFT", "b"]

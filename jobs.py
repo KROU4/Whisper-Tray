@@ -17,7 +17,7 @@ from pathlib import Path
 from config_store import app_data_dir
 from core import DictationStatus, Profile
 from platform_integration import TextInserter
-from text_cleanup import single_line
+from text_cleanup import typeable
 
 logger = logging.getLogger(__name__)
 RETRY_TTL_SECONDS = 5 * 60
@@ -530,7 +530,7 @@ class JobController:
                 self._publish("idle", kind, job_id, text=text, output_path=str(output))
             return
 
-        text = single_line(text)
+        text = typeable(text)
         with self._lock:
             active = self._active
             if active is None or active["job_id"] != job_id or self._shutdown:

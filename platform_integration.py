@@ -180,7 +180,14 @@ class TextInserter:
                 if cancelled is not None and cancelled():
                     self._copy_fallback(text)
                     return "cancelled"
-                controller.type(character)
+                if character == "\n":
+                    # Plain Enter sends chat messages and submits forms;
+                    # Shift+Enter starts a new line in chats and editors.
+                    with controller.pressed(keyboard.Key.shift):
+                        controller.press(keyboard.Key.enter)
+                        controller.release(keyboard.Key.enter)
+                else:
+                    controller.type(character)
             return "inserted"
         except PlatformIntegrationError:
             return self._copy_fallback(text)

@@ -15,9 +15,9 @@ const asset = (path: string) => `${base}/${path}`;
 const localized = (name: string) => asset(`${name}${lang === "en" ? "-en" : ""}.png`);
 const releaseUrl = "https://github.com/KROU4/Whisper-Tray/releases/latest";
 const downloadUrls = {
-  windows: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.0/WhisperTray-1.3.0.msi",
-  macos: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.0/WhisperTray-1.3.0.dmg",
-  linux: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.0/whispertray_1.3.0-1.ubuntu-noble_amd64.deb",
+  windows: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.1/WhisperTray-1.3.1.msi",
+  macos: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.1/WhisperTray-1.3.1.dmg",
+  linux: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.1/whispertray_1.3.1-1.ubuntu-noble_amd64.deb",
 };
 const repoUrl = "https://github.com/KROU4/Whisper-Tray";
 
@@ -67,13 +67,14 @@ const copy = lang === "ru" ? {
     title: "Говорите как обычно. Текст будет аккуратным.",
     lead: "После распознавания Groq Whisper текст проходит через языковую модель Groq — с тем же бесплатным ключом. Модель получает только расшифровку, аудио ей не передаётся.",
     points: [
-      "Расставляет знаки препинания",
-      "Убирает слова-паразиты: «э», «ну», «как бы»",
-      "Исправляет неверно распознанные слова",
+      "Расставляет знаки препинания и сохраняет ваши формулировки",
+      "Убирает «э», «ну», «как бы» и оговорки: «в четверг, нет, в пятницу» → «в пятницу»",
+      "Делит длинную диктовку на абзацы, перечисления оформляет списком",
+      "Пишет числа цифрами и исправляет неверно распознанные слова",
       "Не переводит текст и не отвечает на него",
       "Если модель недоступна, вставится исходная расшифровка",
     ],
-    meta: ["≈0,2–0,8 с дополнительно", "Отключается в настройках", "В режиме «Приватность» не используется"],
+    meta: ["≈0,5 с дополнительно", "Отключается в настройках", "В режиме «Приватность» не используется"],
     demoLabel: "Пример ИИ-шлифовки",
     rawLabel: "Распознано",
     raw: [
@@ -101,7 +102,7 @@ const copy = lang === "ru" ? {
     },
     {
       title: "Продолжайте работать",
-      text: "Текст вставится туда, где стоит курсор, одной строкой — сообщение в чате не уйдёт раньше времени.",
+      text: "Текст вставится туда, где стоит курсор. Абзацы печатаются через Shift+Enter, поэтому сообщение в чате не уйдёт раньше времени.",
       huds: ["processing", "inserted"] as HudState[],
     },
   ],
@@ -110,12 +111,12 @@ const copy = lang === "ru" ? {
   features: [
     { icon: "mdi:monitor-cellphone", title: "В любой программе", text: "Почта, браузер, мессенджер, редактор или CRM — достаточно активного поля ввода.", isNew: false },
     { icon: "mdi:shield-lock-outline", title: "Без скрытой смены приватности", text: "Локальный режим никогда не отправляет аудио в облако. Переключение всегда видно.", isNew: false },
-    { icon: "mdi:check-decagram-outline", title: "Надёжная диктовка", text: "Удержание клавиши срабатывает при любом порядке отпускания, тихие записи не отправляются, а текст вставляется одной строкой.", isNew: true },
+    { icon: "mdi:check-decagram-outline", title: "Надёжная диктовка", text: "Удержание клавиши срабатывает при любом порядке отпускания, тихие записи не отправляются, а абзацы не отправляют сообщение раньше времени.", isNew: true },
     { icon: "mdi:record-circle-outline", title: "Обновлённый интерфейс", text: "Спокойная капсула статуса вместо всплывающих окон об ошибках, более простые настройки и первый запуск.", isNew: true },
     { icon: "mdi:keyboard-outline", title: "Горячая клавиша без синтаксиса", text: "Нажмите «Изменить», затем новое сочетание — WhisperTray сохранит его сам.", isNew: false },
     { icon: "mdi:translate", title: "Русский и English", text: "Интерфейс и документация доступны на двух языках, язык распознавания настраивается отдельно.", isNew: false },
   ],
-  downloadEyebrow: "Открытый исходный код · v1.3.0",
+  downloadEyebrow: "Открытый исходный код · v1.3.1",
   downloadTitle: "Скачайте WhisperTray и начните диктовать.",
   downloadText: "В версии 1.3.0 установщик для Windows стал проще. Пакеты для Windows, macOS и Linux собираются автоматически в GitHub Releases.",
   allDownloads: "Открыть все загрузки",
@@ -169,13 +170,14 @@ const copy = lang === "ru" ? {
     title: "Speak naturally. Get tidy text.",
     lead: "After Groq Whisper transcribes your speech, a Groq language model cleans up the text with the same free Groq key. The model receives only the transcript, never audio.",
     points: [
-      "Adds punctuation",
-      "Removes fillers like “uh” and “um”",
-      "Fixes misrecognized words",
+      "Adds punctuation and keeps your own wording",
+      "Removes fillers and slips: “Thursday, no actually Friday” → “Friday”",
+      "Splits long dictation into paragraphs and turns enumerations into lists",
+      "Writes numbers as digits and fixes misrecognized words",
       "Never translates or replies to your text",
       "If it is unavailable, the original transcript is inserted",
     ],
-    meta: ["Adds about 0.2–0.8 s", "Can be turned off in Settings", "Not used in Privacy mode"],
+    meta: ["Adds about 0.5 s", "Can be turned off in Settings", "Not used in Privacy mode"],
     demoLabel: "AI polishing example",
     rawLabel: "Recognized",
     raw: [
@@ -205,7 +207,7 @@ const copy = lang === "ru" ? {
     },
     {
       title: "Keep working",
-      text: "The text appears wherever your cursor is, on a single line, so chat messages are not sent early.",
+      text: "The text appears wherever your cursor is. Line breaks are typed as Shift+Enter, so chat messages are not sent early.",
       huds: ["processing", "inserted"] as HudState[],
     },
   ],
@@ -214,12 +216,12 @@ const copy = lang === "ru" ? {
   features: [
     { icon: "mdi:monitor-cellphone", title: "Works in any app", text: "Email, browser, messenger, editor, or CRM — all you need is an active text field.", isNew: false },
     { icon: "mdi:shield-lock-outline", title: "Privacy never changes silently", text: "Local mode never uploads audio. Every mode switch stays visible.", isNew: false },
-    { icon: "mdi:check-decagram-outline", title: "Reliable dictation", text: "Hold-to-talk works whatever order you release the keys in, silent recordings are not sent, and text is typed on a single line.", isNew: true },
+    { icon: "mdi:check-decagram-outline", title: "Reliable dictation", text: "Hold-to-talk works whatever order you release the keys in, silent recordings are not sent, and paragraphs never send a chat message early.", isNew: true },
     { icon: "mdi:record-circle-outline", title: "Redesigned interface", text: "A calm status capsule instead of tray pop-ups on errors, plus simpler settings and onboarding.", isNew: true },
     { icon: "mdi:keyboard-outline", title: "No shortcut syntax", text: "Select Change, press a new combination, and WhisperTray stores it for you.", isNew: false },
     { icon: "mdi:translate", title: "Russian and English", text: "The interface and documentation are bilingual, while recognition language is configured separately.", isNew: false },
   ],
-  downloadEyebrow: "Open source · v1.3.0",
+  downloadEyebrow: "Open source · v1.3.1",
   downloadTitle: "Download WhisperTray and start dictating.",
   downloadText: "Version 1.3.0 ships a streamlined Windows installer. Packages for Windows, macOS, and Linux are built automatically in GitHub Releases.",
   allDownloads: "View all downloads",
