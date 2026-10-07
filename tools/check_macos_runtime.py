@@ -9,6 +9,9 @@ from pathlib import Path
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
+    namespace: dict = {}
+    exec((root / "version.py").read_text(encoding="utf-8"), namespace)
+    version = namespace["APP_VERSION"]
     executable = root / "build/whispertray/macos/app/WhisperTray.app/Contents/MacOS/WhisperTray"
     if not executable.is_file():
         raise FileNotFoundError(executable)
@@ -24,9 +27,9 @@ def main() -> None:
         # inherited by spawned workers. Exit zero alone is insufficient.
         subprocess.run([str(executable)], env=environment, check=True, timeout=120)
         result = json.loads(report.read_text(encoding="utf-8"))
-        if result != {"version": "1.2.0", "status": "passed"}:
+        if result != {"version": version, "status": "passed"}:
             raise RuntimeError(f"Unexpected packaged smoke result: {result}")
-    print("WHISPERTRAY_MACOS_RUNTIME_OK version=1.2.0 vad=True worker_restart=True")
+    print(f"WHISPERTRAY_MACOS_RUNTIME_OK version={version} vad=True worker_restart=True")
 
 
 if __name__ == "__main__":

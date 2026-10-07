@@ -52,7 +52,13 @@ def run_smoke() -> None:
     from PySide6.QtCore import qVersion
 
     from jobs import InferenceWorkerClient
+    from text_cleanup import should_polish
     from version import APP_VERSION
+
+    # The worker imports the polisher lazily; a missing packaged module would
+    # only surface as a failed Speed-profile dictation.
+    if should_polish({"profile": "privacy"}) or not should_polish({"profile": "speed"}):
+        raise RuntimeError("AI polishing gate is broken")
 
     # Exercise the bundled native audio/ONNX stack without downloading a model
     # or recording a microphone. This also checks the macOS 12 dependency pins.
