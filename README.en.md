@@ -11,7 +11,7 @@ global shortcut, speak, and the app transcribes your speech and inserts the
 result into the active window. It can run locally or use Groq when you
 explicitly choose the cloud profile and provide your own API key.
 
-> Current release: [WhisperTray 1.2.0](https://github.com/KROU4/Whisper-Tray/releases/latest).
+> Current release: [WhisperTray 1.3.0](https://github.com/KROU4/Whisper-Tray/releases/latest).
 > Native installers are built automatically for Windows, macOS, and Linux.
 
 ## Features
@@ -19,6 +19,8 @@ explicitly choose the cloud profile and provide your own API key.
 - Records from the selected microphone, with a ten-minute limit per dictation.
 - Local `faster-whisper` transcription in the Privacy profile.
 - Groq transcription in the Speed profile with your API key.
+- AI text polishing in the Speed profile: punctuation, filler-word removal, and
+  fixes for misrecognized words, using the same Groq key.
 - Recording, processing, result, and error status in the window, overlay, and
   tray.
 - Independent launch-at-login and start-in-tray controls in Settings.
@@ -50,6 +52,24 @@ and a 180-second overall cloud-job budget.
 Privacy is the default. A Groq failure never changes the profile or sends audio
 to another service. The Groq API key is stored in the operating-system
 credential vault, not in `config.json`.
+
+## AI text polishing
+
+In the Speed profile, the recognized text (never the audio) goes through a Groq
+language model using the same key: it adds punctuation, removes
+fillers such as "uh", "um", and repetitions, and fixes obviously misrecognized
+words. It never translates, summarizes, or answers what you dictated. The app
+uses `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b` and
+`qwen/qwen3.8-27b` on rate limits. It usually adds 0.2–0.8 seconds.
+
+If the model is unavailable, exceeds 12 seconds, or returns an implausible
+result, the original transcript is inserted, so a dictation is never lost.
+Polishing is on by default and can be turned off in Settings → General →
+Polish text with AI. It never runs in the Privacy profile, where text stays on
+the computer. Phrases shorter than four words, dictations longer than 6,000
+characters, and file transcripts are not polished. Dictation is always typed as
+a single line, because a typed line break acts as Enter and would send a chat
+message early.
 
 ## Getting a Groq API key
 

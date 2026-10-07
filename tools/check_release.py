@@ -20,7 +20,7 @@ def main():
     app = config['tool']['briefcase']['app']['whispertray']
     for source in app['sources']:
         assert (root / source).exists(), f'Missing packaged source: {source}'
-    for source in ('jobs.py', 'inference_worker.py', 'version.py'):
+    for source in ('jobs.py', 'inference_worker.py', 'text_cleanup.py', 'version.py'):
         assert source in app['sources'], f'Missing worker/runtime module: {source}'
     assert app['requirement_installer_args'] == ['--constraint', './requirements.txt']
     for line in (root / 'requirements.txt').read_text().splitlines():

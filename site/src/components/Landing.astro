@@ -6,25 +6,38 @@ interface Props {
   lang: "ru" | "en";
 }
 
+type HudState = "recording" | "processing" | "inserted";
+
 const { lang } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const asset = (path: string) => `${base}/${path}`;
+// Screenshots are rendered per interface language: "app-idle.png" (RU) and "app-idle-en.png" (EN).
+const localized = (name: string) => asset(`${name}${lang === "en" ? "-en" : ""}.png`);
 const releaseUrl = "https://github.com/KROU4/Whisper-Tray/releases/latest";
 const downloadUrls = {
-  windows: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.2.0/WhisperTray-1.2.0.msi",
-  macos: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.2.0/WhisperTray-1.2.0.dmg",
-  linux: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.2.0/whispertray_1.2.0-1.ubuntu-noble_amd64.deb",
+  windows: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.0/WhisperTray-1.3.0.msi",
+  macos: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.0/WhisperTray-1.3.0.dmg",
+  linux: "https://github.com/KROU4/Whisper-Tray/releases/download/v1.3.0/whispertray_1.3.0-1.ubuntu-noble_amd64.deb",
 };
 const repoUrl = "https://github.com/KROU4/Whisper-Tray";
 
+// Natural pixel sizes of the cropped status-capsule screenshots in public/.
+const hudWidths: Record<"ru" | "en", Record<HudState, number>> = {
+  ru: { recording: 205, processing: 158, inserted: 150 },
+  en: { recording: 211, processing: 167, inserted: 150 },
+};
+const hudHeight = 46;
+
 const copy = lang === "ru" ? {
   title: "WhisperTray — голосовая диктовка для Windows, macOS и Linux",
-  description: "WhisperTray превращает речь в текст и вставляет её в любое приложение. Локальный приватный режим или быстрое облачное распознавание.",
+  description: "WhisperTray превращает речь в текст и вставляет его в любое приложение. Локальный приватный режим или быстрое облачное распознавание с ИИ-шлифовкой текста.",
   navProfiles: "Режимы",
+  navPolish: "ИИ-шлифовка",
   navHow: "Как работает",
   navFaq: "Вопросы",
   language: "EN",
   languageHref: `${base}/en/`,
+  releasePill: "ИИ-шлифовка текста в режиме «Скорость»",
   heroTop: "Говорите.",
   heroAccent: "WhisperTray",
   heroBottom: "напечатает.",
@@ -35,35 +48,82 @@ const copy = lang === "ru" ? {
     linux: "Скачать для Linux",
   },
   github: "Смотреть на GitHub",
-  facts: ["Windows 10/11", "Локальное распознавание", "Без подписки"],
+  facts: ["Windows · macOS · Linux", "Локальное распознавание", "Без подписки"],
+  heroShotAlt: "Главное окно WhisperTray во время записи: таймер и уровень микрофона",
+  hudAlt: {
+    recording: "Капсула статуса: идёт запись, таймер 0:14 и уровень микрофона",
+    processing: "Капсула статуса: текст распознаётся",
+    inserted: "Капсула статуса: текст вставлен",
+  },
   profilesTitle: "Два режима. Один голосовой помощник.",
   profilesLead: "Вы сами решаете, что важнее прямо сейчас: полная автономность или максимальная скорость.",
   privacy: "Приватность",
-  privacyText: "Весь процесс происходит локально на вашем компьютере. После загрузки модели интернет не нужен, а аудио никуда не отправляется.",
+  privacyText: "Весь процесс происходит локально на вашем компьютере. После загрузки модели интернет не нужен, аудио и текст никуда не отправляются.",
   speed: "Скорость",
-  speedText: "Распознавание через Groq для быстрого старта и минимальной задержки. Аудио отправляется в облако только после явного выбора этого режима.",
+  speedText: "Распознавание через Groq с минимальной задержкой. Аудио отправляется в облако только после явного выбора этого режима.",
+  speedNote: "Новое: ИИ-шлифовка текста",
+  polish: {
+    eyebrow: "Новое в 1.3 · режим «Скорость»",
+    title: "Говорите как обычно. Текст будет аккуратным.",
+    lead: "После распознавания Groq Whisper текст проходит через языковую модель Groq — с тем же бесплатным ключом. Модель получает только расшифровку, аудио ей не передаётся.",
+    points: [
+      "Расставляет знаки препинания",
+      "Убирает слова-паразиты: «э», «ну», «как бы»",
+      "Исправляет неверно распознанные слова",
+      "Не переводит текст и не отвечает на него",
+      "Если модель недоступна, вставится исходная расшифровка",
+    ],
+    meta: ["≈0,2–0,8 с дополнительно", "Отключается в настройках", "В режиме «Приватность» не используется"],
+    demoLabel: "Пример ИИ-шлифовки",
+    rawLabel: "Распознано",
+    raw: [
+      { text: "ну короче э", filler: true },
+      { text: " мне нужно чтобы ты сделал отчёт до пятницы", filler: false },
+    ],
+    stepLabel: "ИИ-шлифовка",
+    stepMeta: "Groq · только текст",
+    cleanLabel: "Вставлено",
+    clean: "Мне нужно, чтобы ты сделал отчёт до пятницы.",
+  },
   howEyebrow: "Один хоткей",
   howTitle: "Меньше переключений. Больше готового текста.",
   howLead: "WhisperTray работает поверх других приложений: вы не покидаете документ, чат или форму, в которой уже находитесь.",
   steps: [
-    ["Нажмите", "Используйте Ctrl + Space или запишите своё сочетание в настройках."],
-    ["Говорите", "Небольшой индикатор показывает, что запись идёт."],
-    ["Продолжайте работать", "Распознанный текст вставится туда, где находится курсор."],
+    {
+      title: "Нажмите",
+      text: "<kbd>Win</kbd> + <kbd>Alt</kbd> в любой программе — или задайте своё сочетание в настройках.",
+      huds: [] as HudState[],
+    },
+    {
+      title: "Говорите",
+      text: "Капсула статуса показывает таймер и уровень микрофона. Случайные записи без речи никуда не отправляются.",
+      huds: ["recording"] as HudState[],
+    },
+    {
+      title: "Продолжайте работать",
+      text: "Текст вставится туда, где стоит курсор, одной строкой — сообщение в чате не уйдёт раньше времени.",
+      huds: ["processing", "inserted"] as HudState[],
+    },
   ],
+  idleShotAlt: "Главное окно WhisperTray с последним распознанным текстом",
+  newBadge: "Новое",
   features: [
-    ["mdi:monitor-cellphone", "В любой программе", "Почта, браузер, мессенджер, редактор или CRM — достаточно активного поля ввода."],
-    ["mdi:shield-lock-outline", "Без скрытой смены приватности", "Локальный режим никогда не отправляет аудио в облако. Переключение всегда видно."],
-    ["mdi:keyboard-outline", "Горячая клавиша без синтаксиса", "Нажмите «Изменить», затем новое сочетание — WhisperTray сохранит его сам."],
-    ["mdi:translate", "Русский и English", "Интерфейс и документация доступны на двух языках, язык распознавания настраивается отдельно."],
+    { icon: "mdi:monitor-cellphone", title: "В любой программе", text: "Почта, браузер, мессенджер, редактор или CRM — достаточно активного поля ввода.", isNew: false },
+    { icon: "mdi:shield-lock-outline", title: "Без скрытой смены приватности", text: "Локальный режим никогда не отправляет аудио в облако. Переключение всегда видно.", isNew: false },
+    { icon: "mdi:check-decagram-outline", title: "Надёжная диктовка", text: "Удержание клавиши срабатывает при любом порядке отпускания, тихие записи не отправляются, а текст вставляется одной строкой.", isNew: true },
+    { icon: "mdi:record-circle-outline", title: "Обновлённый интерфейс", text: "Спокойная капсула статуса вместо всплывающих окон об ошибках, более простые настройки и первый запуск.", isNew: true },
+    { icon: "mdi:keyboard-outline", title: "Горячая клавиша без синтаксиса", text: "Нажмите «Изменить», затем новое сочетание — WhisperTray сохранит его сам.", isNew: false },
+    { icon: "mdi:translate", title: "Русский и English", text: "Интерфейс и документация доступны на двух языках, язык распознавания настраивается отдельно.", isNew: false },
   ],
-  downloadEyebrow: "Открытый исходный код",
+  downloadEyebrow: "Открытый исходный код · v1.3.0",
   downloadTitle: "Скачайте WhisperTray и начните диктовать.",
-  downloadText: "Установочные пакеты для Windows, macOS и Linux собираются автоматически в GitHub Releases.",
+  downloadText: "В версии 1.3.0 установщик для Windows стал проще. Пакеты для Windows, macOS и Linux собираются автоматически в GitHub Releases.",
   allDownloads: "Открыть все загрузки",
   source: "Исходный код",
   faqTitle: "Коротко о важном",
   faqs: [
     ["Нужен ли интернет?", "Для локального режима — только при первой загрузке модели. Облачному режиму Groq интернет нужен всегда."],
+    ["Куда уходит текст при ИИ-шлифовке и это бесплатно?", "Шлифовка работает только в режиме «Скорость»: в Groq отправляется распознанный текст (не аудио) с вашим собственным ключом — тем же, что и для распознавания. WhisperTray ничего за это не берёт, действуют лимиты бесплатного тарифа Groq. В режиме «Приватность» текст не покидает компьютер, а шлифовку можно отключить в настройках."],
     ["Где хранится ключ Groq?", "Не в config.json. На Windows ключ сохраняется в системном менеджере учётных данных."],
     ["Сохраняется ли история диктовок?", "По умолчанию нет. Локальную историю можно включить отдельно и выбрать срок хранения."],
     ["Какие системы поддерживаются?", "Целевые пакеты собираются для Windows, macOS и Linux. На Wayland глобальные горячие клавиши зависят от ограничений окружения."],
@@ -72,12 +132,14 @@ const copy = lang === "ru" ? {
   footerDocs: "Документация",
 } : {
   title: "WhisperTray — voice dictation for Windows, macOS and Linux",
-  description: "WhisperTray turns speech into text and inserts it into any application. Choose private local recognition or fast cloud transcription.",
+  description: "WhisperTray turns speech into text and inserts it into any application. Choose private local recognition or fast cloud transcription with AI text polishing.",
   navProfiles: "Modes",
+  navPolish: "AI polishing",
   navHow: "How it works",
   navFaq: "FAQ",
   language: "RU",
   languageHref: `${base}/`,
+  releasePill: "AI text polishing in Speed mode",
   heroTop: "Speak.",
   heroAccent: "WhisperTray",
   heroBottom: "will type.",
@@ -88,35 +150,84 @@ const copy = lang === "ru" ? {
     linux: "Download for Linux",
   },
   github: "View on GitHub",
-  facts: ["Windows 10/11", "Local recognition", "No subscription"],
+  facts: ["Windows · macOS · Linux", "Local recognition", "No subscription"],
+  heroShotAlt: "WhisperTray main window while recording, with timer and microphone level",
+  hudAlt: {
+    recording: "Status capsule: recording, 0:14 timer and microphone level",
+    processing: "Status capsule: transcribing",
+    inserted: "Status capsule: text inserted",
+  },
   profilesTitle: "Two modes. One voice assistant.",
   profilesLead: "Choose what matters right now: complete autonomy or maximum speed.",
   privacy: "Privacy",
-  privacyText: "Everything runs locally on your computer. Once the model is downloaded, no internet is required and audio never leaves the device.",
+  privacyText: "Everything runs locally on your computer. Once the model is downloaded, no internet is required, and neither audio nor text leaves the device.",
   speed: "Speed",
-  speedText: "Groq transcription provides a fast start and low latency. Audio is sent to the cloud only after you explicitly choose this mode.",
+  speedText: "Groq transcription with minimal latency. Audio is sent to the cloud only after you explicitly choose this mode.",
+  speedNote: "New: AI text polishing",
+  polish: {
+    eyebrow: "New in 1.3 · Speed mode",
+    title: "Speak naturally. Get tidy text.",
+    lead: "After Groq Whisper transcribes your speech, a Groq language model cleans up the text with the same free Groq key. The model receives only the transcript, never audio.",
+    points: [
+      "Adds punctuation",
+      "Removes fillers like “uh” and “um”",
+      "Fixes misrecognized words",
+      "Never translates or replies to your text",
+      "If it is unavailable, the original transcript is inserted",
+    ],
+    meta: ["Adds about 0.2–0.8 s", "Can be turned off in Settings", "Not used in Privacy mode"],
+    demoLabel: "AI polishing example",
+    rawLabel: "Recognized",
+    raw: [
+      { text: "um so", filler: true },
+      { text: " I think we should ", filler: false },
+      { text: "uh", filler: true },
+      { text: " move the meeting to Thursday", filler: false },
+    ],
+    stepLabel: "AI polishing",
+    stepMeta: "Groq · text only",
+    cleanLabel: "Inserted",
+    clean: "I think we should move the meeting to Thursday.",
+  },
   howEyebrow: "One hotkey",
   howTitle: "Fewer context switches. More finished text.",
   howLead: "WhisperTray works on top of your other apps, so you stay in the document, chat, or form you are already using.",
   steps: [
-    ["Press", "Use Ctrl + Space or capture your own shortcut in Settings."],
-    ["Speak", "A compact status indicator confirms that recording is active."],
-    ["Keep working", "The transcription appears wherever your cursor is focused."],
+    {
+      title: "Press",
+      text: "<kbd>Win</kbd> + <kbd>Alt</kbd> in any app, or capture your own shortcut in Settings.",
+      huds: [] as HudState[],
+    },
+    {
+      title: "Speak",
+      text: "A status capsule shows the timer and microphone level. Accidental recordings with no speech are never sent.",
+      huds: ["recording"] as HudState[],
+    },
+    {
+      title: "Keep working",
+      text: "The text appears wherever your cursor is, on a single line, so chat messages are not sent early.",
+      huds: ["processing", "inserted"] as HudState[],
+    },
   ],
+  idleShotAlt: "WhisperTray main window showing the latest transcription",
+  newBadge: "New",
   features: [
-    ["mdi:monitor-cellphone", "Works in any app", "Email, browser, messenger, editor, or CRM — all you need is an active text field."],
-    ["mdi:shield-lock-outline", "Privacy never changes silently", "Local mode never uploads audio. Every mode switch stays visible."],
-    ["mdi:keyboard-outline", "No shortcut syntax", "Select Change, press a new combination, and WhisperTray stores it for you."],
-    ["mdi:translate", "Russian and English", "The interface and documentation are bilingual, while recognition language is configured separately."],
+    { icon: "mdi:monitor-cellphone", title: "Works in any app", text: "Email, browser, messenger, editor, or CRM — all you need is an active text field.", isNew: false },
+    { icon: "mdi:shield-lock-outline", title: "Privacy never changes silently", text: "Local mode never uploads audio. Every mode switch stays visible.", isNew: false },
+    { icon: "mdi:check-decagram-outline", title: "Reliable dictation", text: "Hold-to-talk works whatever order you release the keys in, silent recordings are not sent, and text is typed on a single line.", isNew: true },
+    { icon: "mdi:record-circle-outline", title: "Redesigned interface", text: "A calm status capsule instead of tray pop-ups on errors, plus simpler settings and onboarding.", isNew: true },
+    { icon: "mdi:keyboard-outline", title: "No shortcut syntax", text: "Select Change, press a new combination, and WhisperTray stores it for you.", isNew: false },
+    { icon: "mdi:translate", title: "Russian and English", text: "The interface and documentation are bilingual, while recognition language is configured separately.", isNew: false },
   ],
-  downloadEyebrow: "Open source",
+  downloadEyebrow: "Open source · v1.3.0",
   downloadTitle: "Download WhisperTray and start dictating.",
-  downloadText: "Installers for Windows, macOS, and Linux are built automatically in GitHub Releases.",
+  downloadText: "Version 1.3.0 ships a streamlined Windows installer. Packages for Windows, macOS, and Linux are built automatically in GitHub Releases.",
   allDownloads: "View all downloads",
   source: "Source code",
   faqTitle: "The essentials",
   faqs: [
     ["Does it need internet?", "Local mode only needs a connection for the first model download. Groq cloud mode always requires internet."],
+    ["Where does polished text go, and is it free?", "Polishing runs only in Speed mode: the recognized text (not audio) is sent to Groq with your own key, the same one used for transcription. WhisperTray charges nothing for it; Groq free tier limits apply. In Privacy mode text never leaves your computer, and polishing can be turned off in Settings."],
     ["Where is the Groq key stored?", "Not in config.json. On Windows it is stored in the system credential manager."],
     ["Does WhisperTray save dictation history?", "Not by default. Local history is optional and includes a configurable retention period."],
     ["Which systems are supported?", "Release packages target Windows, macOS, and Linux. On Wayland, global shortcuts depend on desktop environment restrictions."],
@@ -135,6 +246,7 @@ const copy = lang === "ru" ? {
     </a>
     <nav aria-label={lang === "ru" ? "Основная навигация" : "Main navigation"}>
       <a href="#profiles">{copy.navProfiles}</a>
+      <a href="#polish">{copy.navPolish}</a>
       <a href="#how">{copy.navHow}</a>
       <a href="#faq">{copy.navFaq}</a>
     </nav>
@@ -158,7 +270,11 @@ const copy = lang === "ru" ? {
       <img class="hero-atmosphere" src={asset("hero-wave.png")} alt="" width="2048" height="1024" fetchpriority="high" />
       <div class="hero-grid shell">
         <div class="hero-copy">
-          <p class="eyebrow">Windows · macOS · Linux</p>
+          <a class="release-pill" href="#polish">
+            <span class="release-pill-tag">1.3</span>
+            <span>{copy.releasePill}</span>
+            <Icon name="mdi:arrow-right" aria-hidden="true" />
+          </a>
           <h1 id="hero-title">
             <span>{copy.heroTop}</span>
             <strong>{copy.heroAccent}</strong>
@@ -191,7 +307,17 @@ const copy = lang === "ru" ? {
           </ul>
         </div>
         <div class="product-shot">
-          <img src={asset("app-recording.png")} alt={lang === "ru" ? "Окно WhisperTray во время записи" : "WhisperTray recording window"} width="439" height="473" />
+          <div class="product-frame">
+            <img src={localized("app-recording")} alt={copy.heroShotAlt} width="480" height="600" />
+            <div class="hero-hud">
+              <img
+                src={localized("hud-recording")}
+                alt={copy.hudAlt.recording}
+                width={hudWidths[lang].recording}
+                height={hudHeight}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -215,8 +341,54 @@ const copy = lang === "ru" ? {
           <div>
             <h3>{copy.speed}</h3>
             <p>{copy.speedText}</p>
+            <a class="profile-note" href="#polish">
+              <Icon name="mdi:auto-fix" aria-hidden="true" />
+              <span>{copy.speedNote}</span>
+            </a>
           </div>
         </article>
+      </div>
+    </section>
+
+    <section class="polish section" id="polish" aria-labelledby="polish-title">
+      <div class="shell polish-grid">
+        <div class="polish-copy">
+          <p class="eyebrow">{copy.polish.eyebrow}</p>
+          <h2 id="polish-title">{copy.polish.title}</h2>
+          <p class="polish-lead">{copy.polish.lead}</p>
+          <ul class="polish-points">
+            {copy.polish.points.map((point) => (
+              <li><Icon name="mdi:check" aria-hidden="true" /><span>{point}</span></li>
+            ))}
+          </ul>
+          <ul class="polish-meta">
+            {copy.polish.meta.map((item) => <li>{item}</li>)}
+          </ul>
+        </div>
+
+        <figure class="polish-demo" aria-label={copy.polish.demoLabel} data-polish-demo>
+          <div class="demo-block">
+            <p class="demo-label">
+              <span>{copy.polish.rawLabel}</span>
+              <span class="demo-chip">Whisper</span>
+            </p>
+            <p class="demo-raw" lang={lang}>
+              {copy.polish.raw.map((part) => part.filler ? <del>{part.text}</del> : part.text)}
+            </p>
+          </div>
+          <div class="demo-step" aria-hidden="true">
+            <span class="demo-spinner"></span>
+            <span class="demo-step-label">{copy.polish.stepLabel}</span>
+            <span class="demo-step-meta">{copy.polish.stepMeta}</span>
+          </div>
+          <div class="demo-block demo-block-clean">
+            <p class="demo-label demo-label-success">
+              <Icon name="mdi:check" aria-hidden="true" />
+              <span>{copy.polish.cleanLabel}</span>
+            </p>
+            <p class="demo-clean" lang={lang}>{copy.polish.clean}</p>
+          </div>
+        </figure>
       </div>
     </section>
 
@@ -227,27 +399,46 @@ const copy = lang === "ru" ? {
           <h2 id="how-title">{copy.howTitle}</h2>
           <p>{copy.howLead}</p>
           <ol class="steps">
-            {copy.steps.map(([title, text], index) => (
+            {copy.steps.map((step, index) => (
               <li>
                 <span>{String(index + 1).padStart(2, "0")}</span>
-                <div><h3>{title}</h3><p>{text}</p></div>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p set:html={step.text} />
+                  {step.huds.length > 0 && (
+                    <div class="step-hud">
+                      {step.huds.map((state) => (
+                        <img
+                          src={localized(`hud-${state}`)}
+                          alt={copy.hudAlt[state]}
+                          width={hudWidths[lang][state]}
+                          height={hudHeight}
+                          loading="lazy"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ol>
         </div>
         <div class="idle-shot">
-          <img src={asset("app-idle.png")} alt={lang === "ru" ? "Главное окно WhisperTray, готовое к диктовке" : "WhisperTray ready for dictation"} width="439" height="473" loading="lazy" />
+          <img src={localized("app-idle")} alt={copy.idleShotAlt} width="480" height="600" loading="lazy" />
         </div>
       </div>
     </section>
 
     <section class="features section shell" aria-label={lang === "ru" ? "Возможности" : "Features"}>
       <div class="feature-grid">
-        {copy.features.map(([icon, title, text]) => (
+        {copy.features.map((feature) => (
           <article>
-            <Icon name={icon} aria-hidden="true" />
-            <h3>{title}</h3>
-            <p>{text}</p>
+            <Icon name={feature.icon} aria-hidden="true" />
+            <h3>
+              {feature.title}
+              {feature.isNew && <span class="new-badge">{copy.newBadge}</span>}
+            </h3>
+            <p>{feature.text}</p>
           </article>
         ))}
       </div>
@@ -305,5 +496,20 @@ const copy = lang === "ru" ? {
         if (icon) icon.style.transform = detail.open ? "rotate(45deg)" : "rotate(0deg)";
       });
     });
+
+    // Replay the before/after polishing demo once it scrolls into view.
+    // Without JS (or with reduced motion) the final, polished state is shown as is.
+    const demo = document.querySelector<HTMLElement>("[data-polish-demo]");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (demo && !reduceMotion && "IntersectionObserver" in window) {
+      demo.classList.add("is-armed");
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          demo.classList.add("is-playing");
+          observer.disconnect();
+        }
+      }, { threshold: 0.55 });
+      observer.observe(demo);
+    }
   </script>
 </BaseLayout>

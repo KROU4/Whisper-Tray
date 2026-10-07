@@ -136,12 +136,13 @@ class GlobalHotkey:
 
     def _on_release(self, key) -> None:
         key = self._canonical(key)
-        should_release = self._active and key == self.final_key and self.on_release is not None
+        # Any key of the combination ends a hold, whatever order it is released in.
+        should_release = self._active and key in self._keys and self.on_release is not None
         self._pressed.discard(key)
-        if should_release:
-            self.on_release()
         if not all(item in self._pressed for item in self._keys):
             self._active = False
+        if should_release:
+            self.on_release()
 
     def _canonical(self, key):
         """Normalise listener events before comparing them with configured keys.

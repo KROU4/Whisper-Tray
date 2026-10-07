@@ -40,3 +40,4 @@ dist-installer/
 /site/node_modules/
 /site/dist/
 /site/.astro/
+.omc/

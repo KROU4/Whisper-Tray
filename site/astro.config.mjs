@@ -23,7 +23,12 @@ export default defineConfig({
           "keyboard-outline",
           "translate",
           "download",
-          "plus"
+          "plus",
+          "arrow-right",
+          "auto-fix",
+          "check",
+          "check-decagram-outline",
+          "record-circle-outline",
         ],
       },
     }),

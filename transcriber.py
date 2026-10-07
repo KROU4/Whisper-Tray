@@ -35,6 +35,28 @@ def normalize_text(text: str) -> str:
     return text
 
 
+def _segment_value(segment, name):
+    return segment.get(name) if isinstance(segment, dict) else getattr(segment, name, None)
+
+
+def _is_hallucinated(segment) -> bool:
+    """Whisper's own heuristic for text invented over silence or noise."""
+    no_speech, logprob = _segment_value(segment, "no_speech_prob"), _segment_value(segment, "avg_logprob")
+    try:
+        return float(no_speech) > 0.6 and float(logprob) < -1.0
+    except (TypeError, ValueError):
+        return False
+
+
+def _speech_text(transcription) -> str:
+    text = getattr(transcription, "text", "") or ""
+    segments = getattr(transcription, "segments", None)
+    if not isinstance(segments, list) or not any(_is_hallucinated(item) for item in segments):
+        return text
+    kept = [str(_segment_value(item, "text") or "").strip() for item in segments if not _is_hallucinated(item)]
+    return " ".join(part for part in kept if part)
+
+
 class GroqTranscriptionError(BackendError):
     pass
 
@@ -93,6 +115,7 @@ class Transcriber:
         self.on_backend_switch = on_backend_switch
         self.on_progress = on_progress
         self.cancelled = cancelled or (lambda: False)
+        self.last_backend: str | None = None
 
     def _checkpoint(self):
         if self.cancelled():
@@ -163,7 +186,7 @@ class Transcriber:
                 if time.monotonic() > deadline:
                     raise GroqTranscriptionError("cloud_timeout", "Cloud transcription timed out.", retryable=True)
                 elapsed = time.monotonic() - start
-                text = normalize_text(getattr(transcription, "text", "") or "")
+                text = normalize_text(_speech_text(transcription))
                 logger.info("Groq transcription completed in %.2fs", elapsed)
                 return text
             except BackendError:
@@ -322,18 +345,39 @@ class Transcriber:
 
     def transcribe(self, audio: np.ndarray | str | Path, language=None) -> str:
         """Transcribe only through the selected profile; fallback is explicit and local."""
+        self.last_backend = None
         self._checkpoint()
         if self._backend() == GROQ_BACKEND:
             cloud_bytes = self._read_cloud_file(audio) if isinstance(audio, (str, Path)) else _audio_to_wav_bytes(audio)
             try:
-                return self._transcribe_groq_bytes(cloud_bytes, "recording.wav", language=language)
+                text = self._transcribe_groq_bytes(cloud_bytes, "recording.wav", language=language)
+                self.last_backend = GROQ_BACKEND
+                return text
             except GroqTranscriptionError as exc:
                 if exc.code == "cancelled" or not self.config.get("allow_local_fallback", False) or not self._can_fallback_locally():
                     raise
                 logger.warning("Cloud backend failed; using configured local fallback (%s)", exc.code)
                 if self.on_backend_switch:
                     self.on_backend_switch("Groq is unavailable; switching to the selected local model.")
+        self.last_backend = LOCAL_BACKEND
         return self._transcribe_local_audio(audio, language=language)
+
+    def polish(self, text: str, language=None) -> str:
+        """Clean up dictated text with Groq's LLM; never fails the dictation."""
+        from text_cleanup import TextCleaner, should_polish
+
+        # Skip after a local fallback: Groq just failed, and Privacy never polishes.
+        if (
+            not text
+            or self._backend() != GROQ_BACKEND
+            or self.last_backend != GROQ_BACKEND
+            or not should_polish(self.config)
+        ):
+            return text
+        self._progress("polishing")
+        polished = TextCleaner(self._get_groq_client, cancelled=self.cancelled).polish(text, language=language)
+        self._checkpoint()
+        return polished
 
     def _read_cloud_file(self, path):
         path = validate_cloud_file(path)
