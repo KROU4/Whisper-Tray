@@ -93,6 +93,7 @@ class Transcriber:
         self.on_backend_switch = on_backend_switch
         self.on_progress = on_progress
         self.cancelled = cancelled or (lambda: False)
+        self.last_backend: str | None = None
 
     def _checkpoint(self):
         if self.cancelled():
@@ -326,14 +327,29 @@ class Transcriber:
         if self._backend() == GROQ_BACKEND:
             cloud_bytes = self._read_cloud_file(audio) if isinstance(audio, (str, Path)) else _audio_to_wav_bytes(audio)
             try:
-                return self._transcribe_groq_bytes(cloud_bytes, "recording.wav", language=language)
+                text = self._transcribe_groq_bytes(cloud_bytes, "recording.wav", language=language)
+                self.last_backend = GROQ_BACKEND
+                return text
             except GroqTranscriptionError as exc:
                 if exc.code == "cancelled" or not self.config.get("allow_local_fallback", False) or not self._can_fallback_locally():
                     raise
                 logger.warning("Cloud backend failed; using configured local fallback (%s)", exc.code)
                 if self.on_backend_switch:
                     self.on_backend_switch("Groq is unavailable; switching to the selected local model.")
+        self.last_backend = LOCAL_BACKEND
         return self._transcribe_local_audio(audio, language=language)
+
+    def polish(self, text: str, language=None) -> str:
+        """Clean up dictated text with Groq's LLM; never fails the dictation."""
+        from text_cleanup import TextCleaner, should_polish
+
+        # Skip after a local fallback: Groq just failed, and Privacy never polishes.
+        if not text or self.last_backend != GROQ_BACKEND or not should_polish(self.config):
+            return text
+        self._progress("polishing")
+        polished = TextCleaner(self._get_groq_client, cancelled=self.cancelled).polish(text, language=language)
+        self._checkpoint()
+        return polished
 
     def _read_cloud_file(self, path):
         path = validate_cloud_file(path)

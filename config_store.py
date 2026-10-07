@@ -32,6 +32,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "groq_prompt": "",
     "groq_max_retries": 2,
     "allow_local_fallback": False,
+    "ai_cleanup": True,
     "hud": {"enabled": True, "position": "active_monitor", "high_contrast": False, "reduce_motion": False},
     "history": {"enabled": False, "retention_days": 30},
 }
@@ -150,6 +151,7 @@ class ConfigStore:
         config["transcription_backend"] = "local" if config["profile"] == "privacy" else "groq"
         for key in ("allow_local_fallback", "start_in_tray", "onboarding_complete"):
             config[key] = safe_bool(config.get(key), False)
+        config["ai_cleanup"] = safe_bool(config.get("ai_cleanup"), True)
         if config.get("ui_language") not in ("auto", "ru", "en"):
             config["ui_language"] = "auto"
         if config.get("language") not in (None, "ru", "en"):

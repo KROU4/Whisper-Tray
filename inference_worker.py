@@ -78,6 +78,9 @@ def inference_worker(command_queue, result_queue, cancel_event) -> None:
                 text = transcriber.transcribe_file(command["path"], language=command.get("language"))
             else:
                 text = transcriber.transcribe(command["path"], language=command.get("language"))
+                polish = getattr(transcriber, "polish", None)
+                if polish is not None:
+                    text = polish(text, language=command.get("language"))
 
             if cancel_event.is_set():
                 raise BackendError("cancelled", "Transcription was cancelled")
