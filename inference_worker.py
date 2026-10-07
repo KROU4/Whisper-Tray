@@ -12,8 +12,24 @@ def _signature(model: str, config: dict) -> str:
     return json.dumps({"model": model}, sort_keys=True)
 
 
+def _configure_worker_logging() -> None:
+    """A spawned process starts without the UI's handlers; give it its own file."""
+    import multiprocessing
+
+    if multiprocessing.current_process().name == "MainProcess":
+        return  # In-process callers (tests, tools) keep their own logging.
+    try:
+        from config_store import app_data_dir
+        from logging_setup import configure_logging
+
+        configure_logging(app_data_dir(), filename="inference.log")
+    except Exception:
+        pass  # Logging must never prevent transcription.
+
+
 def inference_worker(command_queue, result_queue, cancel_event) -> None:
     """Run one transcription at a time while retaining the loaded model."""
+    _configure_worker_logging()
     transcriber = None
     transcriber_signature = None
     while True:

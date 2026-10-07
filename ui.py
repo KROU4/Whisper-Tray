@@ -400,7 +400,7 @@ STRINGS = {
         "privacy_hint": "Аудио обрабатывается только на этом компьютере.",
         "ai_cleanup": "Улучшать текст с помощью ИИ",
         "ai_cleanup_hint": (
-            "Расставит знаки препинания, уберёт «э-э» и исправит ошибки распознавания. "
+            "Оформит текст как написанный: пунктуация, абзацы и списки, без «э-э» и оговорок. "
             "Работает в режиме «Скорость» через тот же ключ Groq."
         ),
         "ai_cleanup_needs_speed": "Доступно только в режиме «Скорость»: текст обрабатывается через Groq.",
@@ -540,7 +540,7 @@ STRINGS = {
         "privacy_hint": "Audio is processed on this computer only.",
         "ai_cleanup": "Polish text with AI",
         "ai_cleanup_hint": (
-            "Adds punctuation, removes filler words and fixes recognition mistakes. "
+            "Formats text as if typed: punctuation, paragraphs and lists, without fillers or slips. "
             "Works in Speed mode with the same Groq key."
         ),
         "ai_cleanup_needs_speed": "Available in Speed mode only: the text is processed by Groq.",

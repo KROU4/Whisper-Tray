@@ -40,8 +40,11 @@ def test_polish_returns_model_output_and_sends_only_wrapped_text():
     assert TextCleaner(lambda: client).polish(RAW, language="ru") == CLEAN
     call = client.calls[0]
     assert call["model"] == text_cleanup.CLEANUP_MODELS[0]
-    assert call["messages"][1]["content"] == f"<transcript>\n{RAW}\n</transcript>"
+    assert call["messages"][-1] == {"role": "user", "content": f"<transcript>\n{RAW}\n</transcript>"}
     assert "ru" in call["messages"][0]["content"]
+    # Worked examples come as user/assistant pairs between the rules and the transcript.
+    roles = [message["role"] for message in call["messages"][1:-1]]
+    assert roles == ["user", "assistant"] * len(text_cleanup.EXAMPLES)
     assert call["temperature"] == 0.0
 
 
@@ -155,17 +158,43 @@ def test_polish_skips_short_phrases_without_a_request():
     assert client.calls == []
 
 
-def test_polish_gives_first_model_a_short_timeout_and_returns_one_line():
-    client = FakeClient([StatusError(503), CLEAN.replace(" за сентябрь", "\n\nза сентябрь")])
+def test_polish_gives_first_model_a_short_timeout_and_keeps_paragraphs():
+    formatted = CLEAN.replace(" за сентябрь", "\n\n\n\nза  сентябрь")
+    client = FakeClient([StatusError(503), formatted])
+    assert TextCleaner(lambda: client).polish(RAW) == CLEAN.replace(" за сентябрь", "\n\nза сентябрь")
+    extra = len(RAW) / 1000 * text_cleanup.SECONDS_PER_1000_CHARS
+    assert client.calls[0]["timeout"] <= text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS + extra
+    assert client.calls[1]["timeout"] > text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS + extra
+
+
+def test_typeable_keeps_line_feeds_and_removes_other_control_keys():
+    from text_cleanup import typeable
+
+    assert typeable("a\x0bb\x0cc d e\x1bf\x08g  h") == "a b c\nd\ne f g h"
+    assert typeable(" 1. один \r\n2. два\n\n\n\nконец ") == "1. один\n2. два\n\nконец"
+
+
+def test_polish_strips_markdown_bold_and_reasoning():
+    reply = "<think>план</think>Мне **нужно**, чтобы ты сделал отчёт по продажам за сентябрь и отправил его до пятницы."
+    client = FakeClient([reply])
     assert TextCleaner(lambda: client).polish(RAW) == CLEAN
-    assert client.calls[0]["timeout"] <= text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS
-    assert client.calls[1]["timeout"] > text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS
 
 
-def test_single_line_removes_every_control_character():
-    from text_cleanup import single_line
+def test_plausibility_accepts_corrections_digits_and_lists():
+    from text_cleanup import _plausible
 
-    assert single_line("a\x0bb\x0cc d e\x1bf\x08g  h") == "a b c d e f g h"
+    raw = "встреча в среду в десять утра нет вернее в одиннадцать в переговорке на третьем этаже"
+    assert _plausible(raw, "Встреча в среду в 11:00 в переговорке на третьем этаже.")
+    raw = "что нужно сделать до релиза во первых прогнать тесты во вторых обновить ченджлог и задеплоить сайт"
+    listed = "Что нужно сделать до релиза:\n\n1. Прогнать тесты.\n2. Обновить ченджлог.\n3. Задеплоить сайт."
+    assert _plausible(raw, listed)
+
+
+def test_completion_reservation_stays_small_for_rate_limits():
+    from text_cleanup import _completion_budget
+
+    assert _completion_budget("x" * 200, "qwen/qwen3.8-27b") == 356
+    assert _completion_budget("x" * 200, "openai/gpt-oss-20b") == 868
 
 
 def test_dictated_transcript_tags_cannot_close_the_boundary():
@@ -195,3 +224,40 @@ def test_polish_rejects_truncated_and_summarized_output():
     assert TextCleaner(lambda: truncated).polish(RAW) == RAW
     summary = FakeClient(["Нужен отчёт по продажам до пятницы."])
     assert TextCleaner(lambda: summary).polish(RAW) == RAW
+
+
+def test_plausibility_accepts_latin_spellings_and_spoken_numbers():
+    from text_cleanup import _plausible
+
+    assert _plausible("закинь это в гитхаб потом в ноушен и в слак", "Закинь это в GitHub, потом в Notion и в Slack.")
+    assert _plausible(
+        "открой вскод и запусти пайтон скрипт через докер компоуз",
+        "Открой VS Code и запусти Python-скрипт через Docker Compose.",
+    )
+    assert _plausible(
+        "сколько будет двадцать пять процентов от трёх тысяч рублей", "Сколько будет 25% от 3 000 рублей?"
+    )
+
+
+def test_plausibility_rejects_answers_to_dictated_questions():
+    from text_cleanup import _plausible
+
+    question = "what is the capital of france and how many people live there"
+    assert not _plausible(question, "The capital of France is Paris, and about 2.1 million people live there.")
+    assert not _plausible(
+        "напиши мне письмо начальнику что я заболел", "Конечно! Вот письмо: я заболел и завтра не приду."
+    )
+    assert _plausible(question, "What is the capital of France, and how many people live there?")
+
+
+def test_bold_stripping_keeps_dunder_names_and_powers():
+    raw = "метод init вызывается при создании объекта а два в десятой степени это тысяча двадцать четыре"
+    reply = "Метод **__init__** вызывается при создании объекта, а 2**10 — это 1024."
+    client = FakeClient([reply])
+    assert TextCleaner(lambda: client).polish(raw) == "Метод __init__ вызывается при создании объекта, а 2**10 — это 1024."
+
+
+def test_truncated_or_implausible_answers_fall_through_to_the_next_model():
+    client = FakeClient([(CLEAN, "length"), "Конечно, вот отчёт.", CLEAN])
+    assert TextCleaner(lambda: client).polish(RAW) == CLEAN
+    assert [call["model"] for call in client.calls] == list(text_cleanup.CLEANUP_MODELS)

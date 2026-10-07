@@ -81,7 +81,7 @@ def test_silent_recording_is_not_sent_and_stays_retryable(tmp_path):
         controller.shutdown()
 
 
-def test_dictation_with_line_breaks_is_typed_on_one_line(tmp_path):
+def test_dictation_keeps_paragraphs_and_drops_control_keys(tmp_path):
     inserted = []
     state, worker, controller, _recording = make_controller(
         tmp_path,
@@ -91,10 +91,11 @@ def test_dictation_with_line_breaks_is_typed_on_one_line(tmp_path):
         assert controller.toggle_recording()
         assert controller.toggle_recording()
         job_id = worker.commands[-1]["job_id"]
-        worker.results.put({"type": "result", "job_id": job_id, "text": "Первый абзац.\n\nВторой\tабзац."})
+        raw = "Первый  абзац.\r\n\n\n\nВторой\tабзац.\x1b"
+        worker.results.put({"type": "result", "job_id": job_id, "text": raw})
         wait_idle(controller)
-        assert inserted == ["Первый абзац. Второй абзац."]
-        assert job_events(state)[-1]["text"] == "Первый абзац. Второй абзац."
+        assert inserted == ["Первый абзац.\n\nВторой абзац."]
+        assert job_events(state)[-1]["text"] == "Первый абзац.\n\nВторой абзац."
     finally:
         controller.shutdown()
 

@@ -11,7 +11,7 @@ global shortcut, speak, and the app transcribes your speech and inserts the
 result into the active window. It can run locally or use Groq when you
 explicitly choose the cloud profile and provide your own API key.
 
-> Current release: [WhisperTray 1.3.0](https://github.com/KROU4/Whisper-Tray/releases/latest).
+> Current release: [WhisperTray 1.3.1](https://github.com/KROU4/Whisper-Tray/releases/latest).
 > Native installers are built automatically for Windows, macOS, and Linux.
 
 ## Features
@@ -19,8 +19,8 @@ explicitly choose the cloud profile and provide your own API key.
 - Records from the selected microphone, with a ten-minute limit per dictation.
 - Local `faster-whisper` transcription in the Privacy profile.
 - Groq transcription in the Speed profile with your API key.
-- AI text polishing in the Speed profile: punctuation, filler-word removal, and
-  fixes for misrecognized words, using the same Groq key.
+- AI text formatting in the Speed profile: punctuation, paragraphs, and lists,
+  without fillers or slips, using the same Groq key.
 - Recording, processing, result, and error status in the window, overlay, and
   tray.
 - Independent launch-at-login and start-in-tray controls in Settings.
@@ -56,20 +56,35 @@ credential vault, not in `config.json`.
 ## AI text polishing
 
 In the Speed profile, the recognized text (never the audio) goes through a Groq
-language model using the same key: it adds punctuation, removes
-fillers such as "uh", "um", and repetitions, and fixes obviously misrecognized
-words. It never translates, summarizes, or answers what you dictated. The app
-uses `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b` and
-`qwen/qwen3.8-27b` on rate limits. It usually adds 0.2–0.8 seconds.
+language model using the same key. The rules follow dedicated dictation apps
+(Superwhisper, VoiceInk): it formats, it does not rewrite.
 
-If the model is unavailable, exceeds 12 seconds, or returns an implausible
-result, the original transcript is inserted, so a dictation is never lost.
-Polishing is on by default and can be turned off in Settings → General →
-Polish text with AI. It never runs in the Privacy profile, where text stays on
-the computer. Phrases shorter than four words, dictations longer than 6,000
-characters, and file transcripts are not polished. Dictation is always typed as
-a single line, because a typed line break acts as Enter and would send a chat
-message early.
+- Your wording, jargon, and tone are kept; the model never paraphrases,
+  translates, or answers dictated questions and requests.
+- It fixes punctuation, capitalization, obviously misrecognized words, and the
+  spelling of terms (GitHub, Python, API).
+- It removes fillers such as "uh", "um", repetitions, and abandoned starts.
+- Self-corrections ("Thursday, no actually Friday") keep only the final version.
+- Numbers, percentages, times, and amounts are written as digits (25%, 3:00 PM).
+- Longer dictations get paragraphs, and enumerations ("first… second…") become
+  lists. Spoken commands such as "new paragraph", "new line", and "comma" are
+  applied rather than typed.
+
+Text with paragraphs or lists is pasted through the clipboard (Ctrl+V, Cmd+V on
+macOS), as Superwhisper and VoiceInk do: a line break never presses Enter, so it
+cannot send a chat message or run a terminal command. The previous clipboard
+text is restored; single-line dictation is typed as before. The app uses `qwen/qwen3.8-27b` (usually about
+half a second), falling back to `openai/gpt-oss-20b` and `openai/gpt-oss-120b`
+on rate limits. Compare models on your own dictations with
+`tools/eval_polish.py`.
+
+If the model is unavailable, runs out of time, or returns an implausible result
+(for example, an answer instead of formatting), the original transcript is
+inserted, so a dictation is never lost. Polishing is on by default and can be
+turned off in Settings → General → Polish text with AI. It never runs in the
+Privacy profile, where text stays on the computer. Phrases shorter than four
+words, dictations longer than 6,000 characters, and file transcripts are not
+polished.
 
 ## Getting a Groq API key
 
@@ -157,7 +172,9 @@ shown in the app range from about 75 MB (`tiny`) to 2.9 GB (`large`).
 | Linux | `$XDG_DATA_HOME/WhisperTray` or `~/.local/share/WhisperTray` |
 
 This directory holds settings, technical logs, optional history, and file
-transcription results. Logs exclude audio, transcript text, and credentials.
+transcription results. The app log is `whisper_tray.log`; the recognition and
+AI formatting process writes `inference.log`. Logs exclude audio, transcript
+text, and credentials.
 
 ## Development
 

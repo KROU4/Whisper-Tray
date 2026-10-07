@@ -160,3 +160,78 @@ def test_linux_autostart_creates_and_removes_desktop_entry(monkeypatch, tmp_path
     assert autostart.is_enabled() is True
     assert autostart.disable() is True
     assert not target.exists()
+
+
+class RecordingController:
+    def __init__(self, events):
+        self.events = events
+
+    def type(self, character):
+        self.events.append(character)
+
+    def press(self, key):
+        self.events.append(f"press:{key}")
+
+    def release(self, key):
+        self.events.append(f"release:{key}")
+
+    def pressed(self, key):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def hold():
+            self.events.append(f"hold:{key}")
+            yield
+            self.events.append(f"unhold:{key}")
+
+        return hold()
+
+
+class FakeClipboard:
+    def __init__(self, value):
+        self.value = value
+        self.history = []
+
+    def paste(self):
+        return self.value
+
+    def copy(self, text):
+        self.history.append(text)
+        self.value = text
+
+
+def make_inserter(events, clipboard):
+    keys = SimpleNamespace(shift="SHIFT", enter="ENTER", ctrl="CTRL", cmd="CMD")
+    keyboard = SimpleNamespace(Controller=lambda: RecordingController(events), Key=keys)
+    return platform_integration.TextInserter(keyboard, clipboard=clipboard, sleep=lambda _seconds: None)
+
+
+def test_multiline_text_is_pasted_and_the_clipboard_is_restored(monkeypatch):
+    monkeypatch.setattr(platform_integration.sys, "platform", "win32")
+    events, clipboard = [], FakeClipboard("user clipboard")
+    assert make_inserter(events, clipboard).insert("Пункты:\n\n1. Один") == "inserted"
+    # No Enter key is ever pressed: terminals, sheets and forms receive text only.
+    assert events == ["hold:CTRL", "press:v", "release:v", "unhold:CTRL"]
+    assert clipboard.history == ["Пункты:\n\n1. Один", "user clipboard"]
+
+
+def test_multiline_paste_uses_command_on_macos(monkeypatch):
+    monkeypatch.setattr(platform_integration.sys, "platform", "darwin")
+    events = []
+    make_inserter(events, FakeClipboard("")).insert("a\nb")
+    assert events[0] == "hold:CMD"
+
+
+def test_single_line_text_is_typed_without_touching_the_clipboard():
+    events, clipboard = [], FakeClipboard("user clipboard")
+    assert make_inserter(events, clipboard).insert("ab") == "inserted"
+    assert events == ["a", "b"]
+    assert clipboard.history == []
+
+
+def test_cancelled_multiline_paste_leaves_the_text_for_manual_paste():
+    events, clipboard = [], FakeClipboard("old")
+    inserter = make_inserter(events, clipboard)
+    assert inserter.insert("a\nb", cancelled=lambda: True) == "cancelled"
+    assert events == []
+    assert clipboard.value == "a\nb"
