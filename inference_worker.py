@@ -8,7 +8,8 @@ from core import BackendError
 
 
 def _signature(model: str, config: dict) -> str:
-    return json.dumps({"model": model, "config": config}, sort_keys=True, default=str)
+    # Transcriber reads the rest of the config live; only the model needs a reload.
+    return json.dumps({"model": model}, sort_keys=True)
 
 
 def inference_worker(command_queue, result_queue, cancel_event) -> None:
@@ -59,6 +60,7 @@ def inference_worker(command_queue, result_queue, cancel_event) -> None:
                 )
                 transcriber_signature = signature
             else:
+                transcriber.config = config
                 transcriber.on_backend_switch = on_backend_switch
                 transcriber.on_progress = on_progress
                 transcriber.cancelled = cancel_event.is_set

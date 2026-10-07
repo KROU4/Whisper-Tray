@@ -18,6 +18,8 @@ CHANNELS = 1
 DTYPE = "float32"
 MAX_DURATION_SECONDS = 10 * 60
 WARNING_SECONDS = 30
+# Quieter than this is background noise; used to skip recordings without speech.
+VOICE_RMS = 0.005
 
 
 class RecordingError(RuntimeError):
@@ -43,6 +45,7 @@ class AudioRecorder:
         self._started_at: float | None = None
         self._level = 0.0
         self._silent_seconds = 0.0
+        self._voiced_frames = 0
         self._last_sound_at: float | None = None
         self._lock = threading.RLock()
 
@@ -67,6 +70,8 @@ class AudioRecorder:
             samples = np.asarray(indata[:usable, 0], dtype=np.float32)
             rms = float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0
             self._level = min(1.0, rms * 8.0)
+            if rms >= VOICE_RMS:
+                self._voiced_frames += usable
             if rms >= 0.01:
                 self._last_sound_at = time.monotonic()
                 self._silent_seconds = 0.0
@@ -98,6 +103,7 @@ class AudioRecorder:
                 file.close()
                 self._path = Path(file.name)
                 self._frames, self._warned, self._limit_fired = 0, False, False
+                self._voiced_frames = 0
                 self._started_at = time.monotonic()
                 self._last_sound_at = self._started_at
                 self._level = 0.0
@@ -128,6 +134,11 @@ class AudioRecorder:
 
     def stop(self):
         self._close_resources()
+
+    @property
+    def voiced_seconds(self) -> float:
+        with self._lock:
+            return self._voiced_frames / SAMPLE_RATE
 
     def recording_snapshot(self) -> dict[str, float]:
         """Return inexpensive live metering values for the UI."""

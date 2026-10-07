@@ -145,3 +145,16 @@ def test_config_defaults_and_sanitizes_ai_cleanup(tmp_path):
     assert store.load()["ai_cleanup"] is True
     (tmp_path / "config.json").write_text('{"ai_cleanup": false}', encoding="utf-8")
     assert store.load()["ai_cleanup"] is False
+
+
+def test_polish_skips_short_phrases_without_a_request():
+    client = FakeClient([])
+    assert TextCleaner(lambda: client).polish("какая погода завтра") == "какая погода завтра"
+    assert client.calls == []
+
+
+def test_polish_gives_first_model_a_short_timeout_and_returns_one_line():
+    client = FakeClient([StatusError(503), "Первое предложение.\n\nВторое предложение."])
+    assert TextCleaner(lambda: client).polish(RAW) == "Первое предложение. Второе предложение."
+    assert client.calls[0]["timeout"] <= text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS
+    assert client.calls[1]["timeout"] > text_cleanup.FIRST_MODEL_TIMEOUT_SECONDS

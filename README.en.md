@@ -56,7 +56,7 @@ credential vault, not in `config.json`.
 ## AI text polishing
 
 In the Speed profile, the recognized text (never the audio) goes through a Groq
-language model using the same key: it adds punctuation and paragraphs, removes
+language model using the same key: it adds punctuation, removes
 fillers such as "uh", "um", and repetitions, and fixes obviously misrecognized
 words. It never translates, summarizes, or answers what you dictated. The app
 uses `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b` and
@@ -66,8 +66,10 @@ If the model is unavailable, exceeds 12 seconds, or returns an implausible
 result, the original transcript is inserted, so a dictation is never lost.
 Polishing is on by default and can be turned off in Settings → General →
 Polish text with AI. It never runs in the Privacy profile, where text stays on
-the computer. Dictations longer than 6,000 characters and file transcripts are
-not polished.
+the computer. Phrases shorter than four words, dictations longer than 6,000
+characters, and file transcripts are not polished. Dictation is always typed as
+a single line, because a typed line break acts as Enter and would send a chat
+message early.
 
 ## Getting a Groq API key
 

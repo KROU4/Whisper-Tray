@@ -35,6 +35,28 @@ def normalize_text(text: str) -> str:
     return text
 
 
+def _segment_value(segment, name):
+    return segment.get(name) if isinstance(segment, dict) else getattr(segment, name, None)
+
+
+def _is_hallucinated(segment) -> bool:
+    """Whisper's own heuristic for text invented over silence or noise."""
+    no_speech, logprob = _segment_value(segment, "no_speech_prob"), _segment_value(segment, "avg_logprob")
+    try:
+        return float(no_speech) > 0.6 and float(logprob) < -1.0
+    except (TypeError, ValueError):
+        return False
+
+
+def _speech_text(transcription) -> str:
+    text = getattr(transcription, "text", "") or ""
+    segments = getattr(transcription, "segments", None)
+    if not isinstance(segments, list) or not any(_is_hallucinated(item) for item in segments):
+        return text
+    kept = [str(_segment_value(item, "text") or "").strip() for item in segments if not _is_hallucinated(item)]
+    return " ".join(part for part in kept if part)
+
+
 class GroqTranscriptionError(BackendError):
     pass
 
@@ -164,7 +186,7 @@ class Transcriber:
                 if time.monotonic() > deadline:
                     raise GroqTranscriptionError("cloud_timeout", "Cloud transcription timed out.", retryable=True)
                 elapsed = time.monotonic() - start
-                text = normalize_text(getattr(transcription, "text", "") or "")
+                text = normalize_text(_speech_text(transcription))
                 logger.info("Groq transcription completed in %.2fs", elapsed)
                 return text
             except BackendError:

@@ -17,11 +17,14 @@ from pathlib import Path
 from config_store import app_data_dir
 from core import DictationStatus, Profile
 from platform_integration import TextInserter
+from text_cleanup import single_line
 
 logger = logging.getLogger(__name__)
 RETRY_TTL_SECONDS = 5 * 60
 CANCEL_GRACE_SECONDS = 2.0
 CLOUD_JOB_BUDGET_SECONDS = 3 * 60
+# Less voiced audio than this is an accidental tap or silence, not speech.
+MIN_VOICED_SECONDS = 0.25
 
 
 class InferenceWorkerClient:
@@ -233,6 +236,13 @@ class JobController:
             return self._stop_recording()
         return self._start_recording()
 
+    def start_recording(self) -> bool:
+        """Start only; hold-mode release must never toggle a new recording on."""
+        return self._start_recording()
+
+    def stop_recording(self) -> bool:
+        return self._stop_recording()
+
     def _start_recording(self) -> bool:
         job_id = self._new_id()
         with self._lock:
@@ -280,6 +290,11 @@ class JobController:
             if self._active is None or self._active["job_id"] != job_id:
                 return False
             self._active["path"] = path
+        voiced = getattr(recorder, "voiced_seconds", None)
+        if isinstance(voiced, (int, float)) and voiced < MIN_VOICED_SECONDS:
+            # Whisper invents phrases for silence; keep the audio for Retry instead.
+            self._terminal_error(job_id, "dictation", "empty_audio", "No speech was detected")
+            return True
         tray = getattr(self.state, "tray_app", None)
         if tray is not None:
             tray.set_recording(False)
@@ -514,6 +529,7 @@ class JobController:
                 self._publish("idle", kind, job_id, text=text, output_path=str(output))
             return
 
+        text = single_line(text)
         with self._lock:
             active = self._active
             if active is None or active["job_id"] != job_id or self._shutdown:

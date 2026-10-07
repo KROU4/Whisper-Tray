@@ -79,7 +79,7 @@ class HotkeyListener:
     def _start_recording(self):
         jobs = getattr(self.state, "jobs", None)
         if jobs is not None:
-            if not jobs.toggle_recording():
+            if not jobs.start_recording():
                 self._notify("WhisperTray", "Already processing the previous task")
             return
         with self.operation_lock:
@@ -105,7 +105,7 @@ class HotkeyListener:
     def _stop_and_transcribe(self):
         jobs = getattr(self.state, "jobs", None)
         if jobs is not None:
-            jobs.toggle_recording()
+            jobs.stop_recording()
             return
         if not self.machine.transition({DictationStatus.RECORDING}, DictationStatus.PROCESSING):
             return
